@@ -1,10 +1,8 @@
 package main
 
-import (
-	"github.com/struqt/fortify/cmd"
-	"os"
-)
+import "os"
+import "github.com/struqt/fortify/cmd"
 
 func main() {
-	os.Exit(cmd.Run())
+	os.Exit(cmd.Execute())
 }

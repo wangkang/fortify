@@ -2,43 +2,18 @@ package cmd
 
 import (
 	"crypto/rand"
-	"crypto/sha512"
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/struqt/fortify/files"
 )
-
-const fileBlockSize = 512 * 1024
-const maxScannerTokenSize = 768 * 1024
-
-type sssPart struct {
-	Payload   string    `json:"payload"`
-	Threshold uint8     `json:"threshold"`
-	Parts     uint8     `json:"parts"`
-	Part      int       `json:"part"`
-	Timestamp time.Time `json:"timestamp"`
-	Digest    string    `json:"digest"`
-	Block     int       `json:"block"`
-	Blocks    int       `json:"blocks"`
-	file      *os.File
-}
-
-func sssDigest(secret []byte) string {
-	sha := sha512.New()
-	sha.Write(secret)
-	digest := base64.URLEncoding.EncodeToString(sha.Sum(nil))
-	return digest
-}
 
 const partsDefault = 5
 const thresholdDefault = 3
 const randomBytesDefault = 32
-const partFilePrefixDefault = "./sss"
+const partFilePrefixDefault = "sss"
 
 func init() {
 	sss := &cobra.Command{Use: "sss", Short: "Shamir's secret sharing"}
@@ -80,11 +55,11 @@ func sssCombineRunE(cmd *cobra.Command, args []string) (err error) {
 		err = errors.New("no arguments")
 		return
 	}
-	return sssCombinePartFiles(args, fileOut, truncate)
+	return files.SssCombinePartFiles(args, fileOut, truncate)
 }
 
 func sssSplitRunE(c *cobra.Command, args []string) (err error) {
-	defer sssCloseAllFilesForWrite()
+	defer files.SssCloseAllFilesForWrite()
 	file := strings.TrimSpace(args[0])
 	if len(file) == 0 {
 		err = errors.New("no file specified")
@@ -92,11 +67,11 @@ func sssSplitRunE(c *cobra.Command, args []string) (err error) {
 	}
 	parts, threshold := sssSplitArgs(c)
 	prefix, _ := c.Flags().GetString("prefix")
-	return sssSplitIntoFiles(file, parts, threshold, prefix)
+	return files.SssSplitIntoFiles(file, parts, threshold, prefix)
 }
 
 func sssRandomRunE(c *cobra.Command, _ []string) (err error) {
-	defer sssCloseAllFilesForWrite()
+	defer files.SssCloseAllFilesForWrite()
 	var bs uint16
 	bs, err = c.Flags().GetUint16("bytes")
 	if bs <= 0 {
@@ -110,12 +85,12 @@ func sssRandomRunE(c *cobra.Command, _ []string) (err error) {
 		return
 	}
 	parts, threshold := sssSplitArgs(c)
-	var ps []sssPart
-	if ps, err = sssSplit(secret, parts, threshold); err != nil {
+	var ps []files.SssPart
+	if ps, err = files.SssSplit(secret, parts, threshold); err != nil {
 		return
 	}
 	prefix, _ := c.Flags().GetString("prefix")
-	return sssAppendParts(ps, 0, 1, prefix)
+	return files.SssAppendParts(ps, 0, 1, prefix)
 }
 
 func sssSplitArgs(c *cobra.Command) (parts, threshold uint8) {
