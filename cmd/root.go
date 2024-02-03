@@ -28,9 +28,7 @@ func rootRunE(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 	defer iCloseFn()
-	w := files.NewFortifiedWriter(out, &files.FortifiedFileHead{
-		Parts: 2, Threshold: 2,
-	})
+	w := files.NewFortifiedWriter(out, nil)
 	return w.WriteFile(in)
 }
 
