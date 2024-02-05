@@ -1,4 +1,4 @@
-package files
+package sss
 
 import (
 	"bufio"
@@ -12,7 +12,7 @@ import (
 	"github.com/struqt/fortify/shamir"
 )
 
-func sssCombine(parts []SssPart) ([]byte, error) {
+func Combine(parts []Part) ([]byte, error) {
 	var (
 		secret []byte
 		expect string
@@ -41,7 +41,7 @@ func sssCombine(parts []SssPart) ([]byte, error) {
 	return secret, nil
 }
 
-func SssCombinePartFiles(in []string, out string, truncate bool) error {
+func CombinePartFiles(in []string, out string, truncate bool) error {
 	size := len(in)
 	if size == 0 {
 		return nil
@@ -93,7 +93,7 @@ func SssCombinePartFiles(in []string, out string, truncate bool) error {
 		scanners[i].Split(bufio.ScanLines)
 	}
 
-	parts := make([]SssPart, size)
+	parts := make([]Part, size)
 	count := 0
 	for {
 		var err error
@@ -128,11 +128,11 @@ func SssCombinePartFiles(in []string, out string, truncate bool) error {
 			return errors.New("block mismatch")
 		}
 		var secret []byte
-		if secret, err = sssCombine(parts); err != nil {
+		if secret, err = Combine(parts); err != nil {
 			return err
 		}
 		expect := parts[0].Digest
-		actual := SssDigest(secret)
+		actual := Digest(secret)
 		if expect != actual {
 			fmt.Printf("Expect secret digest: %s\n", expect)
 			fmt.Printf("Actual secret digest: %s\n", actual)

@@ -1,30 +1,60 @@
 package files
 
 import (
-	"crypto/sha512"
-	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
-	"time"
+
+	"github.com/struqt/fortify/fortifier"
+	"github.com/struqt/fortify/sss"
 )
 
-const fileBlockSize = 512 * 1024
-const maxScannerTokenSize = 768 * 1024
-
-type SssPart struct {
-	Payload   string    `json:"payload"`
-	Block     int       `json:"block"`
-	Blocks    int       `json:"blocks"`
-	Part      int       `json:"part"`
-	Parts     uint8     `json:"parts"`
-	Threshold uint8     `json:"threshold"`
-	Digest    string    `json:"digest"`
-	Timestamp time.Time `json:"timestamp"`
-	file      *os.File
+func SssCombineKeyFiles(args []string) (parts []sss.Part, err error) {
+	size := len(args)
+	if size == 0 {
+		return nil, nil
+	}
+	kCloseFns := make([]func(), size)
+	kParts := make([]sss.Part, size)
+	for i, name := range args {
+		var kf *os.File
+		if kf, kCloseFns[i], err = OpenInputFile(name); err != nil {
+			return
+		}
+		var kb []byte
+		if kb, err = io.ReadAll(kf); err != nil {
+			return
+		}
+		if err = json.Unmarshal(kb, &kParts[i]); err != nil {
+			return
+		}
+	}
+	defer func() {
+		for _, kCloseFn := range kCloseFns {
+			kCloseFn()
+		}
+	}()
+	return kParts, nil
 }
 
-func SssDigest(secret []byte) string {
-	sha := sha512.New()
-	sha.Write(secret)
-	digest := base64.URLEncoding.EncodeToString(sha.Sum(nil))
-	return digest
+func NewFortifier(kind fortifier.CipherKeyKind, args []string) (f *fortifier.Fortifier, err error) {
+	switch kind {
+	case fortifier.CipherKeyKindSSS:
+		var parts []sss.Part
+		if parts, err = SssCombineKeyFiles(args); err != nil {
+			return
+		}
+		f = fortifier.NewFortifierWithSss(parts)
+	case fortifier.CipherKeyKindEd25519:
+		err = fmt.Errorf("todo cipher key kind: %s", kind)
+		return
+	case fortifier.CipherKeyKindRSA:
+		err = fmt.Errorf("todo cipher key kind: %s", kind)
+		return
+	default:
+		err = fmt.Errorf("unknown cipher key kind: %s", kind)
+		return
+	}
+	return
 }

@@ -65,3 +65,28 @@ func OpenForWrite(name string, truncate bool, mode os.FileMode) (*os.File, error
 	}
 	return file, nil
 }
+
+func OpenInputFile(name string) (file *os.File, closeFn func(), err error) {
+	if file, err = OpenForRead(name); err != nil {
+		return
+	}
+	fmt.Printf("%v --> open\n", file.Name())
+	closeFn = func() {
+		_ = file.Close()
+		fmt.Printf("%v --> close\n", file.Name())
+	}
+	return
+}
+
+func OpenOutputFile(name string, truncate bool) (file *os.File, closeFn func(), err error) {
+	if file, err = OpenForWrite(name, truncate, 0640); err != nil {
+		return
+	}
+	fmt.Printf("open --> %v\n", file.Name())
+	closeFn = func() {
+		_ = file.Sync()
+		_ = file.Close()
+		fmt.Printf("close --> %v\n", file.Name())
+	}
+	return
+}

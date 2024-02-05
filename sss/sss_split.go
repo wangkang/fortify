@@ -1,4 +1,4 @@
-package files
+package sss
 
 import (
 	"bufio"
@@ -15,17 +15,17 @@ import (
 	"github.com/struqt/fortify/shamir"
 )
 
-func SssSplit(secret []byte, parts, threshold uint8) ([]SssPart, error) {
+func Split(secret []byte, parts, threshold uint8) ([]Part, error) {
 	var err error
 	var out [][]byte
-	var outParts []SssPart
+	var outParts []Part
 	out, err = shamir.Split(secret, int(parts), int(threshold))
 	if err != nil {
 		return outParts, err
 	}
-	digest := SssDigest(secret)
+	digest := Digest(secret)
 	for index, i := range out {
-		p := SssPart{
+		p := Part{
 			Parts:     parts,
 			Part:      index + 1,
 			Payload:   base64.URLEncoding.EncodeToString(i),
@@ -38,7 +38,7 @@ func SssSplit(secret []byte, parts, threshold uint8) ([]SssPart, error) {
 	return outParts, nil
 }
 
-func SssSplitIntoFiles(f string, parts, threshold uint8, prefix string) error {
+func SplitIntoFiles(f string, parts, threshold uint8, prefix string) error {
 	path, err := filepath.Abs(f)
 	if err != nil {
 		return err
@@ -60,18 +60,18 @@ func SssSplitIntoFiles(f string, parts, threshold uint8, prefix string) error {
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, fileBlockSize)
 	var bytesRead, block int
-	var ps []SssPart
+	var ps []Part
 	for {
 		bytesRead, err = reader.Read(buffer)
 		if err != nil {
 			return err
 		}
 		secret := buffer[:bytesRead]
-		ps, err = SssSplit(secret, parts, threshold)
+		ps, err = Split(secret, parts, threshold)
 		if err != nil {
 			return err
 		}
-		err = SssAppendParts(ps, block, blocks, prefix)
+		err = AppendParts(ps, block, blocks, prefix)
 		if err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func SssSplitIntoFiles(f string, parts, threshold uint8, prefix string) error {
 	return nil
 }
 
-func SssAppendParts(ps []SssPart, block, blocks int, prefix string) error {
+func AppendParts(ps []Part, block, blocks int, prefix string) error {
 	size := len(ps)
 	var wg sync.WaitGroup
 	wg.Add(size)
@@ -91,7 +91,7 @@ func SssAppendParts(ps []SssPart, block, blocks int, prefix string) error {
 	for i, p := range ps {
 		{
 			path := fmt.Sprintf("%s_%d_%d.json", prefix, p.Parts, p.Part)
-			file := SssOpenFileForWrite(path)
+			file := OpenFileForWrite(path)
 			if file == nil {
 				return fmt.Errorf("can not open file: %s", path)
 			}
@@ -99,9 +99,9 @@ func SssAppendParts(ps []SssPart, block, blocks int, prefix string) error {
 			ps[i].Block = block + 1
 			ps[i].Blocks = blocks
 		}
-		go func(wg *sync.WaitGroup, p SssPart) {
+		go func(wg *sync.WaitGroup, p Part) {
 			defer wg.Done()
-			if err := sssAppendPart(&p, block); err != nil {
+			if err := appendPart(&p, block); err != nil {
 				errCh <- err
 				return
 			}
@@ -122,7 +122,7 @@ func SssAppendParts(ps []SssPart, block, blocks int, prefix string) error {
 	return nil
 }
 
-func sssAppendPart(p *SssPart, block int) (err error) {
+func appendPart(p *Part, block int) (err error) {
 	file := p.file
 	if block == 0 {
 		if err = file.Truncate(0); err != nil {
@@ -150,7 +150,7 @@ func sssAppendPart(p *SssPart, block int) (err error) {
 var openedFilesForWrite = make(map[string]*os.File)
 var openedFilesForWriteLock sync.Mutex
 
-func SssOpenFileForWrite(path string) *os.File {
+func OpenFileForWrite(path string) *os.File {
 	openedFilesForWriteLock.Lock()
 	defer openedFilesForWriteLock.Unlock()
 	var err error
@@ -170,7 +170,7 @@ func SssOpenFileForWrite(path string) *os.File {
 	return file
 }
 
-func SssCloseAllFilesForWrite() {
+func CloseAllFilesForWrite() {
 	openedFilesForWriteLock.Lock()
 	defer openedFilesForWriteLock.Unlock()
 	for k, file := range openedFilesForWrite {
