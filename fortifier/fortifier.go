@@ -2,6 +2,7 @@ package fortifier
 
 import (
 	"crypto/cipher"
+	"io"
 	"os"
 	"time"
 )
@@ -11,6 +12,7 @@ type Encrypter interface {
 }
 
 type Decrypter interface {
+	Decrypt(r io.Reader, w io.Writer, layout *FileLayout) error
 	DecryptFile(in, out *os.File, layout *FileLayout) error
 }
 

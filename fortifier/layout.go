@@ -31,6 +31,10 @@ type FileLayout struct {
 	metadata *Metadata
 }
 
+func (f *FileLayout) DataLen() uint64 {
+	return f.dataLen
+}
+
 func (f *FileLayout) Version() rune {
 	return f.version
 }

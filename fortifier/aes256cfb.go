@@ -2,6 +2,7 @@ package fortifier
 
 import (
 	"crypto/cipher"
+	"io"
 	"os"
 )
 
@@ -25,6 +26,11 @@ type Aes256DecrypterCFB struct {
 
 func NewAes256DecrypterCFB(f *Fortifier) *Aes256DecrypterCFB {
 	return &Aes256DecrypterCFB{Aes256StreamDecrypter{f}}
+}
+
+func (f *Aes256DecrypterCFB) Decrypt(r io.Reader, w io.Writer, layout *FileLayout) error {
+	return f.Aes256StreamDecrypter.Decrypt(r, w, layout,
+		CipherMode{Name: CipherModeAes256CFB, SteamMaker: cipher.NewCFBDecrypter})
 }
 
 func (f *Aes256DecrypterCFB) DecryptFile(in, out *os.File, layout *FileLayout) error {
