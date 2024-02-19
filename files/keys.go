@@ -2,13 +2,38 @@ package files
 
 import (
 	"encoding/json"
-	"fmt"
+	"encoding/pem"
 	"io"
 	"os"
 
-	"github.com/struqt/fortify/fortifier"
 	"github.com/struqt/fortify/sss"
 )
+
+func PemDecodeFile(args []string) (blocks []pem.Block, err error) {
+	size := len(args)
+	if size == 0 {
+		return
+	}
+	var kCloseFn func()
+	var kf *os.File
+	if kf, kCloseFn, err = OpenInputFile(args[0]); err != nil {
+		return
+	}
+	defer kCloseFn()
+	var kb []byte
+	if kb, err = io.ReadAll(kf); err != nil {
+		return
+	}
+	for {
+		var blk *pem.Block
+		blk, kb = pem.Decode(kb)
+		if blk == nil || blk.Type == "" {
+			break
+		}
+		blocks = append(blocks, *blk)
+	}
+	return
+}
 
 func SssCombineKeyFiles(args []string) (parts []sss.Part, err error) {
 	size := len(args)
@@ -36,25 +61,4 @@ func SssCombineKeyFiles(args []string) (parts []sss.Part, err error) {
 		}
 	}()
 	return kParts, nil
-}
-
-func NewFortifier(kind fortifier.CipherKeyKind, args []string) (f *fortifier.Fortifier, err error) {
-	switch kind {
-	case fortifier.CipherKeyKindSSS:
-		var parts []sss.Part
-		if parts, err = SssCombineKeyFiles(args); err != nil {
-			return
-		}
-		f = fortifier.NewFortifierWithSss(parts)
-	case fortifier.CipherKeyKindEd25519:
-		err = fmt.Errorf("todo cipher key kind: %s", kind)
-		return
-	case fortifier.CipherKeyKindRSA:
-		err = fmt.Errorf("todo cipher key kind: %s", kind)
-		return
-	default:
-		err = fmt.Errorf("unknown cipher key kind: %s", kind)
-		return
-	}
-	return
 }

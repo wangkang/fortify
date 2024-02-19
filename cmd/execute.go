@@ -25,7 +25,6 @@ func init() {
 }
 
 func execute(input string, args []string) (err error) {
-	defer func() { fmt.Println("Executed") }()
 	var in *os.File
 	var iCloseFn func()
 	if in, iCloseFn, err = files.OpenInputFile(input); err != nil {
@@ -39,7 +38,7 @@ func execute(input string, args []string) (err error) {
 	//fmt.Printf("%s\n", layout)
 	meta := layout.Metadata()
 	var f *fortifier.Fortifier
-	if f, err = files.NewFortifier(meta.Key, args); err != nil {
+	if f, err = newFortifier(meta.Key, meta, args); err != nil {
 		return
 	}
 	var dec fortifier.Decrypter
@@ -58,7 +57,9 @@ func execute(input string, args []string) (err error) {
 	//fmt.Printf("%s *-->O %s %d bytes [%s %s]\n", in.Name(), out.Name(), layout.DataLen(), meta.Key, meta.Mode)
 	r := bufio.NewReaderSize(in, 128*1024)
 	if err = dec.Decrypt(r, out, layout); err != nil {
-		return
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to decrypt program: %v\n", err)
+		os.Exit(1)
+		return nil
 	}
 	//fmt.Printf("%s *-->O %s %d bytes (%v) OK\n", in.Name(), out.Name(), layout.DataLen(), time.Since(started))
 	var wg sync.WaitGroup
@@ -66,9 +67,11 @@ func execute(input string, args []string) (err error) {
 	chanSignal := make(chan os.Signal, 1)
 	signal.Notify(chanSignal, os.Interrupt, syscall.SIGTERM)
 	if process, err = start(out, &wg, chanSignal); err != nil {
-		fmt.Printf("failed to run program: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to run program: %v\n", err)
+		os.Exit(2)
 		return nil
 	}
+	defer func() { fmt.Println("Executed") }()
 	sig := <-chanSignal
 	_ = process.Signal(sig)
 	wg.Wait()

@@ -1,8 +1,6 @@
 package sss
 
 import (
-	"crypto/sha512"
-	"encoding/base64"
 	"os"
 	"time"
 )
@@ -20,11 +18,4 @@ type Part struct {
 	Digest    string    `json:"digest"`
 	Timestamp time.Time `json:"timestamp"`
 	file      *os.File
-}
-
-func Digest(secret []byte) string {
-	sha := sha512.New()
-	sha.Write(secret)
-	digest := base64.URLEncoding.EncodeToString(sha.Sum(nil))
-	return digest
 }

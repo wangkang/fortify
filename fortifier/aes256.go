@@ -62,6 +62,9 @@ type Aes256StreamDecrypter struct {
 }
 
 func (f *Aes256StreamDecrypter) DecryptFile(in, out *os.File, layout *FileLayout, mode CipherMode) (err error) {
+	if err = f.SetupKey(); err != nil {
+		return
+	}
 	ir := bufio.NewReaderSize(in, 128*1024)
 	ow := bufio.NewWriterSize(out, 256*1024)
 	meta := layout.Metadata()
@@ -95,7 +98,7 @@ func (f *Aes256StreamDecrypter) Decrypt(r io.Reader, w io.Writer, layout *FileLa
 	if meta.Mode != mode.Name {
 		return fmt.Errorf("requires cipher mode: %s", meta.Mode)
 	}
-	if meta.Sss.Digest != f.meta.Sss.Digest {
+	if f.meta.Sss != nil && meta.Sss.Digest != f.meta.Sss.Digest {
 		return errors.New("mismatched key digest")
 	}
 	f.meta.Mode = meta.Mode

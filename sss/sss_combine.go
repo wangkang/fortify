@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/struqt/fortify/shamir"
+	"github.com/struqt/fortify/utils"
 )
 
 func Combine(parts []Part) ([]byte, error) {
@@ -132,7 +133,7 @@ func CombinePartFiles(in []string, out string, truncate bool) error {
 			return err
 		}
 		expect := parts[0].Digest
-		actual := Digest(secret)
+		actual := utils.ComputeDigest(secret)
 		if expect != actual {
 			fmt.Printf("Expect secret digest: %s\n", expect)
 			fmt.Printf("Actual secret digest: %s\n", actual)

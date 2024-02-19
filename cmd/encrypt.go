@@ -28,7 +28,7 @@ func init() {
 
 func encrypt(input, output, key, mode string, truncate bool, args []string) (err error) {
 	var f *fortifier.Fortifier
-	if f, err = files.NewFortifier(fortifier.CipherKeyKind(key), args); err != nil {
+	if f, err = newFortifier(fortifier.CipherKeyKind(key), nil, args); err != nil {
 		return
 	}
 	var enc fortifier.Encrypter

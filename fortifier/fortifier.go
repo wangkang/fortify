@@ -28,10 +28,12 @@ type CipherMode struct {
 }
 
 type Metadata struct {
-	Timestamp time.Time      `json:"timestamp"`
-	Key       CipherKeyKind  `json:"key"`
-	Mode      CipherModeName `json:"mode"`
-	Sss       *MetadataSss   `json:"sss"`
+	Timestamp time.Time        `json:"timestamp"`
+	Key       CipherKeyKind    `json:"key"`
+	Mode      CipherModeName   `json:"mode"`
+	Sss       *MetadataSss     `json:"sss"`
+	Rsa       *MetadataRsa     `json:"rsa"`
+	Ed25519   *MetadataEd25519 `json:"ed25519"`
 }
 
 type Fortifier struct {

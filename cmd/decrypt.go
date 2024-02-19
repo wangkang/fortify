@@ -38,7 +38,7 @@ func decrypt(input, output string, truncate bool, args []string) (err error) {
 	fmt.Printf("%s\n", layout)
 	meta := layout.Metadata()
 	var f *fortifier.Fortifier
-	if f, err = files.NewFortifier(meta.Key, args); err != nil {
+	if f, err = newFortifier(meta.Key, meta, args); err != nil {
 		return
 	}
 	var dec fortifier.Decrypter

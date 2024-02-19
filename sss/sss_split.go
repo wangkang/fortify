@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/struqt/fortify/shamir"
+	"github.com/struqt/fortify/utils"
 )
 
 func Split(secret []byte, parts, threshold uint8) ([]Part, error) {
@@ -23,7 +24,7 @@ func Split(secret []byte, parts, threshold uint8) ([]Part, error) {
 	if err != nil {
 		return outParts, err
 	}
-	digest := Digest(secret)
+	digest := utils.ComputeDigest(secret)
 	for index, i := range out {
 		p := Part{
 			Parts:     parts,
