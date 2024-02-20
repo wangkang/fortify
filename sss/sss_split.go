@@ -4,14 +4,13 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/struqt/fortify/files"
 	"github.com/struqt/fortify/shamir"
 	"github.com/struqt/fortify/utils"
 )
@@ -39,24 +38,16 @@ func Split(secret []byte, parts, threshold uint8) ([]Part, error) {
 	return outParts, nil
 }
 
-func SplitIntoFiles(f string, parts, threshold uint8, prefix string) error {
-	path, err := filepath.Abs(f)
+func SplitIntoFiles(in string, parts, threshold uint8, prefix string) error {
+	file, closer, err := files.OpenInputFile(in)
 	if err != nil {
 		return err
 	}
+	defer closer()
 	var stat os.FileInfo
-	if stat, err = os.Stat(path); err != nil {
+	if stat, err = file.Stat(); err != nil {
 		return err
 	}
-	if stat.IsDir() {
-		return errors.New("not a file")
-	}
-	var file *os.File
-	file, err = os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = file.Close() }()
 	blocks := int(math.Ceil(float64(stat.Size()) / float64(fileBlockSize)))
 	reader := bufio.NewReader(file)
 	buffer := make([]byte, fileBlockSize)
@@ -149,36 +140,32 @@ func appendPart(p *Part, block int) (err error) {
 }
 
 var openedFilesForWrite = make(map[string]*os.File)
+var openedFilesForWriteCloser = make(map[string]func())
 var openedFilesForWriteLock sync.Mutex
 
 func OpenFileForWrite(path string) *os.File {
 	openedFilesForWriteLock.Lock()
 	defer openedFilesForWriteLock.Unlock()
-	var err error
-	if path, err = filepath.Abs(path); err != nil {
-		return nil
-	}
-	file := openedFilesForWrite[path]
+	file, _ := openedFilesForWrite[path]
 	if file != nil {
 		return file
 	}
-	file, err = os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
-	if err != nil {
+	var err error
+	var closer func()
+	if file, closer, err = files.OpenOutputFile(path, true); err != nil {
 		return nil
 	}
-	fmt.Printf("Open: %v\n", path)
 	openedFilesForWrite[path] = file
+	openedFilesForWriteCloser[path] = closer
 	return file
 }
 
 func CloseAllFilesForWrite() {
 	openedFilesForWriteLock.Lock()
 	defer openedFilesForWriteLock.Unlock()
-	for k, file := range openedFilesForWrite {
-		_ = file.Sync()
-		_ = file.Close()
-		openedFilesForWrite[k] = nil
-		fmt.Printf("Close: %s\n", file.Name())
+	for _, closer := range openedFilesForWriteCloser {
+		closer()
 	}
 	clear(openedFilesForWrite)
+	clear(openedFilesForWriteCloser)
 }

@@ -1,6 +1,7 @@
 package fortifier
 
 import (
+	"crypto/aes"
 	"crypto/cipher"
 	"io"
 	"os"
@@ -16,24 +17,12 @@ type Decrypter interface {
 	DecryptFile(in, out *os.File, layout *FileLayout) error
 }
 
-type CipherModeName string
-
-func (s CipherModeName) String() string {
-	return string(s)
-}
-
-type CipherMode struct {
-	Name       CipherModeName
-	SteamMaker func(block cipher.Block, iv []byte) cipher.Stream
-}
-
 type Metadata struct {
-	Timestamp time.Time        `json:"timestamp"`
-	Key       CipherKeyKind    `json:"key"`
-	Mode      CipherModeName   `json:"mode"`
-	Sss       *MetadataSss     `json:"sss"`
-	Rsa       *MetadataRsa     `json:"rsa"`
-	Ed25519   *MetadataEd25519 `json:"ed25519"`
+	Timestamp time.Time      `json:"timestamp"`
+	Key       CipherKeyKind  `json:"key"`
+	Mode      CipherModeName `json:"mode"`
+	Sss       *MetadataSss   `json:"sss"`
+	Rsa       *MetadataRsa   `json:"rsa"`
 }
 
 type Fortifier struct {
@@ -41,12 +30,6 @@ type Fortifier struct {
 	key   *CipherKeyData
 	block cipher.Block
 }
-
-const (
-	CipherModeAes256CTR CipherModeName = "aes256-ctr"
-	CipherModeAes256OFB CipherModeName = "aes256-ofb"
-	CipherModeAes256CFB CipherModeName = "aes256-cfb"
-)
 
 func NewEncrypter(mode CipherModeName, f *Fortifier) Encrypter {
 	switch mode {
@@ -72,4 +55,23 @@ func NewDecrypter(mode CipherModeName, f *Fortifier) Decrypter {
 	default:
 		return nil
 	}
+}
+
+func (f *Fortifier) SetupKey() (err error) {
+	if len(f.key.raw) > 0 {
+		return
+	}
+	switch f.key.kind {
+	case CipherKeyKindRSA:
+		err = f.setupRsaKey()
+	default:
+		err = f.setupSssKey()
+	}
+	if err != nil {
+		return
+	}
+	if f.block, err = aes.NewCipher(f.key.raw); err != nil {
+		return
+	}
+	return
 }

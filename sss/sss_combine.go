@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
-	"path/filepath"
 
+	"github.com/struqt/fortify/files"
 	"github.com/struqt/fortify/shamir"
 	"github.com/struqt/fortify/utils"
 )
@@ -42,52 +43,66 @@ func Combine(parts []Part) ([]byte, error) {
 	return secret, nil
 }
 
+func CombineKeyFiles(args []string) (parts []Part, err error) {
+	size := len(args)
+	if size == 0 {
+		return nil, nil
+	}
+	kCloseFns := make([]func(), size)
+	kParts := make([]Part, size)
+	for i, name := range args {
+		var kf *os.File
+		if kf, kCloseFns[i], err = files.OpenInputFile(name); err != nil {
+			return
+		}
+		var kb []byte
+		if kb, err = io.ReadAll(kf); err != nil {
+			return
+		}
+		if err = json.Unmarshal(kb, &kParts[i]); err != nil {
+			err = fmt.Errorf("not a valid sss key part\nCaused by: %v", err)
+			return
+		}
+	}
+	defer func() {
+		for _, kCloseFn := range kCloseFns {
+			kCloseFn()
+		}
+	}()
+	return kParts, nil
+}
+
 func CombinePartFiles(in []string, out string, truncate bool) error {
 	size := len(in)
 	if size == 0 {
 		return nil
 	}
-
 	var output *os.File = nil
+	var oCloseFn func()
 	if len(out) > 0 {
 		var err error
-		if out, err = filepath.Abs(out); err != nil {
+		if output, oCloseFn, err = files.OpenOutputFile(out, truncate); err != nil {
 			return err
 		}
-		if output, err = os.OpenFile(out, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600); err != nil {
-			return err
-		}
-		fmt.Printf("Open output file: %s\n", out)
 	}
-	defer func() {
-		if output != nil {
-			_ = output.Sync()
-			_ = output.Close()
-			fmt.Printf("Close output file: %s\n", output.Name())
-		}
-	}()
-	inputs := make([]*os.File, size)
+	defer oCloseFn()
+	iFiles := make([]*os.File, size)
+	iCloseFn := make([]func(), size)
 	for i, path := range in {
 		var err error
-		if path, err = filepath.Abs(path); err != nil {
+		if iFiles[i], iCloseFn[i], err = files.OpenInputFile(path); err != nil {
 			return err
 		}
-		var file *os.File
-		if file, err = os.OpenFile(path, os.O_RDONLY, 0400); err != nil {
-			return err
-		}
-		inputs[i] = file
-		fmt.Printf("Open file: %v\n", path)
 	}
 	defer func() {
-		for _, file := range inputs {
-			_ = file.Close()
-			fmt.Printf("Close file: %s\n", file.Name())
+		for _, closer := range iCloseFn {
+			closer()
 		}
+		clear(iCloseFn)
+		clear(iFiles)
 	}()
-
 	scanners := make([]*bufio.Scanner, size)
-	for i, file := range inputs {
+	for i, file := range iFiles {
 		buf := make([]byte, maxScannerTokenSize)
 		scanners[i] = bufio.NewScanner(file)
 		scanners[i].Buffer(buf, maxScannerTokenSize)

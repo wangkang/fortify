@@ -1,16 +1,15 @@
 package fortifier
 
 import (
-	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/pem"
 	"fmt"
-	"hash"
-	"syscall"
-
 	"github.com/struqt/fortify/sss"
 	"golang.org/x/term"
+	"hash"
+	"os"
 )
 
 type CipherKeyKind string
@@ -20,9 +19,8 @@ func (s CipherKeyKind) String() string {
 }
 
 const (
-	CipherKeyKindSSS     CipherKeyKind = "sss"
-	CipherKeyKindEd25519 CipherKeyKind = "ed25519"
-	CipherKeyKindRSA     CipherKeyKind = "rsa"
+	CipherKeyKindSSS CipherKeyKind = "sss"
+	CipherKeyKindRSA CipherKeyKind = "rsa"
 )
 
 type CipherKey interface {
@@ -45,31 +43,27 @@ func (k *CipherKeyData) CipherKeyKind() CipherKeyKind {
 	return k.kind
 }
 
-func (f *Fortifier) SetupKey() (err error) {
-	if len(f.key.raw) > 0 {
-		return
-	}
-	switch f.key.kind {
-	case CipherKeyKindEd25519:
-		err = f.setupEd25519Key()
-	case CipherKeyKindRSA:
-		err = f.setupRsaKey()
-	default:
-		err = f.setupSssKey()
-	}
-	if err != nil {
-		return
-	}
-	if f.block, err = aes.NewCipher(f.key.raw); err != nil {
-		return
-	}
-	return
+type CipherModeName string
+
+func (s CipherModeName) String() string {
+	return string(s)
 }
+
+type CipherMode struct {
+	Name       CipherModeName
+	SteamMaker func(block cipher.Block, iv []byte) cipher.Stream
+}
+
+const (
+	CipherModeAes256CTR CipherModeName = "aes256-ctr"
+	CipherModeAes256OFB CipherModeName = "aes256-ofb"
+	CipherModeAes256CFB CipherModeName = "aes256-cfb"
+)
 
 func enterPassphrase() []byte {
 	fmt.Print("Enter passphrase: ")
-	if passphrase, err := term.ReadPassword(syscall.Stdin); err != nil {
-		fmt.Println("\nError reading passphrase:", err)
+	if passphrase, err := term.ReadPassword(int(os.Stdin.Fd())); err != nil {
+		fmt.Printf("\nError reading passphrase: %v\n", err)
 		return nil
 	} else {
 		fmt.Println()

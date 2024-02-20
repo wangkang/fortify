@@ -20,7 +20,32 @@ func Stat(file string) (stat os.FileInfo, path string, err error) {
 	return
 }
 
-func OpenForRead(name string) (*os.File, error) {
+func OpenInputFile(name string) (file *os.File, closeFn func(), err error) {
+	if file, err = openForRead(name); err != nil {
+		return
+	}
+	fmt.Printf("%v --> open\n", file.Name())
+	closeFn = func() {
+		_ = file.Close()
+		fmt.Printf("%v --> close\n", file.Name())
+	}
+	return
+}
+
+func OpenOutputFile(name string, truncate bool, flags ...int) (file *os.File, closeFn func(), err error) {
+	if file, err = openForWrite(name, truncate, 0600, flags...); err != nil {
+		return
+	}
+	fmt.Printf("%v <-- open\n", file.Name())
+	closeFn = func() {
+		_ = file.Sync()
+		_ = file.Close()
+		fmt.Printf("%v <-- close\n", file.Name())
+	}
+	return
+}
+
+func openForRead(name string) (*os.File, error) {
 	var (
 		err  error
 		path string
@@ -40,7 +65,7 @@ func OpenForRead(name string) (*os.File, error) {
 	}
 }
 
-func OpenForWrite(name string, truncate bool, mode os.FileMode) (*os.File, error) {
+func openForWrite(name string, truncate bool, mode os.FileMode, flags ...int) (*os.File, error) {
 	var (
 		err  error
 		path string
@@ -51,6 +76,9 @@ func OpenForWrite(name string, truncate bool, mode os.FileMode) (*os.File, error
 		return nil, err
 	}
 	flag := os.O_WRONLY | os.O_CREATE
+	for _, f := range flags {
+		flag |= f
+	}
 	if truncate {
 		flag |= os.O_TRUNC
 	}
@@ -64,29 +92,4 @@ func OpenForWrite(name string, truncate bool, mode os.FileMode) (*os.File, error
 		return nil, fmt.Errorf("%s is not empty", path)
 	}
 	return file, nil
-}
-
-func OpenInputFile(name string) (file *os.File, closeFn func(), err error) {
-	if file, err = OpenForRead(name); err != nil {
-		return
-	}
-	fmt.Printf("%v --> open\n", file.Name())
-	closeFn = func() {
-		_ = file.Close()
-		fmt.Printf("%v --> close\n", file.Name())
-	}
-	return
-}
-
-func OpenOutputFile(name string, truncate bool) (file *os.File, closeFn func(), err error) {
-	if file, err = OpenForWrite(name, truncate, 0640); err != nil {
-		return
-	}
-	fmt.Printf("%v <-- open\n", file.Name())
-	closeFn = func() {
-		_ = file.Sync()
-		_ = file.Close()
-		fmt.Printf("%v <-- close\n", file.Name())
-	}
-	return
 }
