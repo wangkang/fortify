@@ -4,12 +4,12 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/pem"
 	"fmt"
-	"github.com/struqt/fortify/sss"
-	"golang.org/x/term"
 	"hash"
 	"os"
+
+	"github.com/struqt/fortify/sss"
+	"golang.org/x/term"
 )
 
 type CipherKeyKind string
@@ -29,10 +29,10 @@ type CipherKey interface {
 }
 
 type CipherKeyData struct {
-	kind   CipherKeyKind
-	raw    []byte
-	parts  []sss.Part
-	blocks []pem.Block
+	kind  CipherKeyKind
+	raw   []byte
+	parts []sss.Part
+	bytes []byte
 }
 
 func (k *CipherKeyData) NewSha256() hash.Hash {

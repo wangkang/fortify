@@ -9,10 +9,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/struqt/fortify/utils"
+	"golang.org/x/crypto/ssh"
 )
+
+const rsaFortifier = "rsa_fortifier"
 
 type MetadataRsa struct {
 	Timestamp  time.Time `json:"timestamp"`
@@ -20,54 +24,66 @@ type MetadataRsa struct {
 	Ciphertext string    `json:"ciphertext"`
 }
 
-func NewFortifierWithRsa(meta *Metadata, blocks []pem.Block) *Fortifier {
+func NewFortifierWithRsa(meta *Metadata, bytes []byte) *Fortifier {
 	var m *MetadataRsa
 	if meta != nil {
 		m = meta.Rsa
 	}
 	return &Fortifier{
 		meta: &Metadata{Rsa: m},
-		key:  &CipherKeyData{kind: CipherKeyKindRSA, blocks: blocks},
+		key:  &CipherKeyData{kind: CipherKeyKindRSA, bytes: bytes},
 	}
 }
 
-func (f *Fortifier) setupRsaKey() (err error) {
-	if len(f.key.blocks) == 0 {
-		return errors.New("no key for RSA")
-	}
-	m := f.meta.Rsa
-	if m != nil {
-		if err = f.setupRsaPrivateKey(); err != nil {
-			return
-		}
+func (f *Fortifier) setupRsaKey() error {
+	if f.meta.Rsa == nil {
+		return f.setupRsaPublicKey()
 	} else {
-		if err = f.setupRsaPublicKey(); err != nil {
-			return
-		}
+		return f.setupRsaPrivateKey()
 	}
-	return
 }
 
 func (f *Fortifier) setupRsaPublicKey() (err error) {
-	p := f.key.blocks[0]
-	if p.Type != "RSA PUBLIC KEY" {
-		return fmt.Errorf("requiring RSA PUBLIC KEY, not %s", p.Type)
+	var pub *rsa.PublicKey
+	parsed, _, _, _, x := ssh.ParseAuthorizedKey(f.key.bytes)
+	if x == nil {
+		if parsedCryptoKey, ok := parsed.(ssh.CryptoPublicKey); ok {
+			k := parsedCryptoKey.CryptoPublicKey()
+			pub, _ = k.(*rsa.PublicKey)
+		}
 	}
-	var k any
-	if k, err = x509.ParsePKCS1PublicKey(p.Bytes); err != nil {
-		return fmt.Errorf("not an RSA public key in PKCS #1, ASN.1 DER form -- %v", err)
+	if pub == nil {
+		blocks := f.decodePemFile()
+		if len(blocks) == 0 {
+			return fmt.Errorf("%q: pem file decoding failed", rsaFortifier)
+		}
+		block := &blocks[0]
+		var k any
+		switch block.Type {
+		case "RSA PUBLIC KEY":
+			if k, err = x509.ParsePKCS1PublicKey(block.Bytes); err != nil {
+				return fmt.Errorf("%q: not public key in PKCS #1, ASN.1 DER form -- %v", rsaFortifier, err)
+			}
+		case "PUBLIC KEY":
+			return fmt.Errorf("%q: PKCS #8 public key is unsupported", rsaFortifier)
+		}
+		if k == nil {
+			return fmt.Errorf("%q: unsupported key type %q", rsaFortifier, block.Type)
+		}
+		pub = k.(*rsa.PublicKey)
 	}
-	pub := k.(*rsa.PublicKey)
-	f.key.raw = make([]byte, 32)
-	raw := f.key.raw
+	if pub == nil {
+		return
+	}
+	raw := make([]byte, 32)
 	if _, err = rand.Read(raw); err != nil {
 		return
 	}
 	var encrypted []byte
-	// if encrypted, err = rsa.EncryptPKCS1v15(rand.Reader, pub, raw); err != nil {
 	if encrypted, err = rsa.EncryptOAEP(sha256.New(), rand.Reader, pub, raw, nil); err != nil {
 		return
 	}
+	f.key.raw = raw
 	f.meta.Key = CipherKeyKindRSA
 	f.meta.Rsa = &MetadataRsa{
 		Timestamp:  time.Now(),
@@ -78,38 +94,63 @@ func (f *Fortifier) setupRsaPublicKey() (err error) {
 }
 
 func (f *Fortifier) setupRsaPrivateKey() (err error) {
-	p := f.key.blocks[0]
-	if p.Type != "RSA PRIVATE KEY" {
-		return fmt.Errorf("requiring RSA PRIVATE KEY, not %s", p.Type)
+	var pri *rsa.PrivateKey
+	if pri, err = f.parseRsaPrivateKey(); err != nil {
+		return
 	}
 	m := f.meta.Rsa
 	var ciphertext []byte
 	ciphertext, err = base64.URLEncoding.DecodeString(m.Ciphertext)
-	var passphrase []byte
-	var der []byte
-	if p.Headers["Proc-Type"] == "4,ENCRYPTED" {
-		passphrase = enterPassphrase()
-		if len(passphrase) == 0 {
-			return errors.New("passphrase is required")
-		}
-		if der, err = x509.DecryptPEMBlock(&p, passphrase); err != nil {
-			return fmt.Errorf("decrypting RSA private key -- %v", err)
-		}
-	}
-	if der == nil {
-		der = p.Bytes
-	}
-	var k any
-	if k, err = x509.ParsePKCS1PrivateKey(der); err != nil {
-		return fmt.Errorf("not an RSA private key in PKCS #1, ASN.1 DER form -- %v", err)
-	}
-	pri := k.(*rsa.PrivateKey)
 	if f.key.raw, err = rsa.DecryptOAEP(sha256.New(), rand.Reader, pri, ciphertext, nil); err != nil {
-		return fmt.Errorf("decrypting secret key failed. %v", err)
+		return fmt.Errorf("%q: decrypting secret key failed. %v", rsaFortifier, err)
 	}
 	actual := utils.ComputeDigest(f.key.raw)
 	if m.Digest != actual {
-		return fmt.Errorf("digest mismatch: expect %s, actual %s", m.Digest, actual)
+		return fmt.Errorf("%q: digest mismatch. expect %q, actual %q", rsaFortifier, m.Digest, actual)
+	}
+	return
+}
+
+func (f *Fortifier) parseRsaPrivateKey() (*rsa.PrivateKey, error) {
+	var k any
+	var err error
+	bytes := f.key.bytes
+	if k, err = ssh.ParseRawPrivateKey(bytes); err != nil {
+		var passphraseMissingError *ssh.PassphraseMissingError
+		if errors.As(err, &passphraseMissingError) {
+			k, err = ssh.ParseRawPrivateKeyWithPassphrase(bytes, enterPassphrase())
+		}
+	}
+	if err != nil {
+		blocks := f.decodePemFile()
+		if len(blocks) == 0 {
+			return nil, err
+		}
+		block := &blocks[0]
+		switch block.Type {
+		case "ENCRYPTED PRIVATE KEY":
+			err = fmt.Errorf("%q: encrypted PKCS #8 private key is unsupported", rsaFortifier)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if key, ok := k.(*rsa.PrivateKey); !ok {
+		return nil, fmt.Errorf("%q: requiring *rsa.PrivateKey, not %v", rsaFortifier, reflect.TypeOf(k))
+	} else {
+		return key, nil
+	}
+}
+
+func (f *Fortifier) decodePemFile() (blocks []pem.Block) {
+	kb := f.key.bytes
+	for {
+		var blk *pem.Block
+		blk, kb = pem.Decode(kb)
+		if blk == nil || blk.Type == "" {
+			break
+		}
+		blocks = append(blocks, *blk)
 	}
 	return
 }

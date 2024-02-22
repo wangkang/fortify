@@ -23,20 +23,17 @@ func newFortifier(kind fortifier.CipherKeyKind, meta *fortifier.Metadata, args [
 			return fortifier.NewFortifierWithSss(parts), nil
 		}
 	case fortifier.CipherKeyKindRSA:
-		if blocks, err := decodePemFile(args); err != nil {
+		if kb, err := readKeyFile(args); err != nil {
 			return nil, err
 		} else {
-			if 0 == len(blocks) {
-				return nil, fmt.Errorf("not a pem formatted file: %s", args)
-			}
-			return fortifier.NewFortifierWithRsa(meta, blocks), nil
+			return fortifier.NewFortifierWithRsa(meta, kb), nil
 		}
 	default:
 		return nil, fmt.Errorf("unknown cipher key kind: %s", kind)
 	}
 }
 
-func decodePemFile(args []string) (blocks []pem.Block, err error) {
+func readKeyFile(args []string) (kb []byte, err error) {
 	size := len(args)
 	if size == 0 {
 		return
@@ -47,10 +44,13 @@ func decodePemFile(args []string) (blocks []pem.Block, err error) {
 		return
 	}
 	defer kCloseFn()
-	var kb []byte
 	if kb, err = io.ReadAll(kf); err != nil {
 		return
 	}
+	return
+}
+
+func decodePemFile(kb []byte) (blocks []pem.Block, err error) {
 	for {
 		var blk *pem.Block
 		blk, kb = pem.Decode(kb)
