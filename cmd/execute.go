@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	sub := &cobra.Command{Use: "execute", Short: "Decrypt the fortified file"}
+	sub := &cobra.Command{Use: "execute", Short: "Execute the program decrypted from the fortified file"}
 	var i string
 	sub.Flags().StringVarP(&i, "in", "i", "", "path of the fortified input file")
 	_ = sub.MarkFlagRequired("in")

@@ -12,7 +12,7 @@ import (
 func init() {
 	var i, o, k, m string
 	var T bool
-	sub := &cobra.Command{Use: "encrypt", Short: "Encrypt a file"}
+	sub := &cobra.Command{Use: "encrypt", Short: "Encrypt any file (includes executable file)"}
 	sub.Flags().StringVarP(&i, "in", "i", "", "path of the input file")
 	sub.Flags().StringVarP(&o, "out", "o", "fortified.data", "path of the output encrypted file")
 	sub.Flags().BoolVarP(&T, "truncate", "T", false, "truncate the output file before write")

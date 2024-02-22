@@ -82,7 +82,7 @@ func AppendParts(ps []Part, block, blocks int, prefix string) error {
 	errCh := make(chan error, len(ps))
 	for i, p := range ps {
 		{
-			path := fmt.Sprintf("%s_%d_%d.json", prefix, p.Parts, p.Part)
+			path := fmt.Sprintf("%s%dof%d.json", prefix, p.Part, p.Parts)
 			file := OpenFileForWrite(path)
 			if file == nil {
 				return fmt.Errorf("can not open file: %s", path)

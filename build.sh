@@ -21,6 +21,8 @@ cleanup() {
   if [ -d "${OUT_DIR}" ]; then
     rm -rf "${OUT_DIR:?}"/*
   fi
+  mkdir -p "${OUT_DIR}/sss"
+  mkdir -p "${OUT_DIR}/rsa"
 }
 
 build() {

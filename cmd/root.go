@@ -12,7 +12,7 @@ import (
 	"github.com/struqt/fortify/sss"
 )
 
-var root = &cobra.Command{Use: "fortify"}
+var root = &cobra.Command{Use: "fortify", Short: "Enhance file security through encryption"}
 
 func newFortifier(kind fortifier.CipherKeyKind, meta *fortifier.Metadata, args []string) (*fortifier.Fortifier, error) {
 	switch kind {
