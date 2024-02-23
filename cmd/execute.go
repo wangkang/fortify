@@ -54,14 +54,14 @@ func execute(input string, args []string) (err error) {
 		//fmt.Printf("%s removed\n", out.Name())
 	}()
 	//started := time.Now()
-	//fmt.Printf("%s *-->O %s %d bytes [%s %s]\n", in.Name(), out.Name(), layout.DataLen(), meta.Key, meta.Mode)
+	//fmt.Printf("%s *-->O %s %d bytes [%s %s]\n", in.Name(), out.Name(), layout.DataLength(), meta.Key, meta.Mode)
 	r := bufio.NewReaderSize(in, 128*1024)
 	if err = dec.Decrypt(r, out, layout); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Failed to decrypt program: %v\n", err)
 		os.Exit(1)
 		return nil
 	}
-	//fmt.Printf("%s *-->O %s %d bytes (%v) OK\n", in.Name(), out.Name(), layout.DataLen(), time.Since(started))
+	//fmt.Printf("%s *-->O %s %d bytes (%v) OK\n", in.Name(), out.Name(), layout.DataLength(), time.Since(started))
 	var wg sync.WaitGroup
 	var process *os.Process
 	chanSignal := make(chan os.Signal, 1)

@@ -18,21 +18,21 @@ var layoutDataStart = "🔒fortified🔒"
 var layoutByteOrder = binary.BigEndian
 
 type FileLayout struct {
-	magic     uint32
-	checksum  []byte
-	dataLen   uint64
-	metaSum   []byte
-	metaLen   uint32
-	metaJson  []byte
-	nonce     []byte
-	dataStart []byte
+	magic          uint32
+	checksum       []byte
+	dataLength     uint64
+	headChecksum   []byte
+	metadataLength uint32
+	metadataRaw    []byte
+	dataStartMark  []byte
+	nonce          []byte
 	//
 	version  rune
 	metadata *Metadata
 }
 
-func (f *FileLayout) DataLen() uint64 {
-	return f.dataLen
+func (f *FileLayout) DataLength() uint64 {
+	return f.dataLength
 }
 
 func (f *FileLayout) Version() rune {
@@ -46,9 +46,10 @@ func (f *FileLayout) Metadata() *Metadata {
 func (f *FileLayout) String() string {
 	return fmt.Sprintf("------------------------------\n"+
 		"Magic: %X\nVersion: %c\nChecksum: %X\nData Length: %d\n"+
-		"Meta Checksum: %X\nMeta Length: %d\nMeta JSON: %s\nData Start: %s\nNonce: %X\n"+
+		"Head Checksum: %X\nMetadata Length: %d\nMetadata Raw: %s\nData Start Mark: %s\nNonce: %X\n"+
 		"------------------------------",
-		f.magic, f.Version(), f.checksum, f.dataLen, f.metaSum, f.metaLen, f.metaJson, f.dataStart, f.nonce,
+		f.magic, f.Version(), f.checksum, f.dataLength, f.headChecksum,
+		f.metadataLength, f.metadataRaw, f.dataStartMark, f.nonce,
 	)
 }
 
@@ -64,22 +65,22 @@ func (f *FileLayout) ReadHeadIn(in io.Reader) (err error) {
 	if err = binary.Read(in, endian, f.checksum); err != nil {
 		return
 	}
-	if err = binary.Read(in, endian, &f.dataLen); err != nil {
+	if err = binary.Read(in, endian, &f.dataLength); err != nil {
 		return
 	}
-	f.metaSum = make([]byte, 32)
-	if err = binary.Read(in, endian, f.metaSum); err != nil {
+	f.headChecksum = make([]byte, 32)
+	if err = binary.Read(in, endian, f.headChecksum); err != nil {
 		return
 	}
-	if err = binary.Read(in, endian, &f.metaLen); err != nil {
+	if err = binary.Read(in, endian, &f.metadataLength); err != nil {
 		return
 	}
-	f.metaJson = make([]byte, f.metaLen)
-	if err = binary.Read(in, endian, f.metaJson); err != nil {
+	f.metadataRaw = make([]byte, f.metadataLength)
+	if err = binary.Read(in, endian, f.metadataRaw); err != nil {
 		return
 	}
-	f.dataStart = make([]byte, len(layoutDataStart))
-	if err = binary.Read(in, endian, f.dataStart); err != nil {
+	f.dataStartMark = make([]byte, len(layoutDataStart))
+	if err = binary.Read(in, endian, f.dataStartMark); err != nil {
 		return
 	}
 	f.nonce = make([]byte, 8)
@@ -89,7 +90,7 @@ func (f *FileLayout) ReadHeadIn(in io.Reader) (err error) {
 	//
 	f.version = rune(0xFF & f.magic)
 	f.metadata = &Metadata{}
-	if err = json.Unmarshal(f.metaJson, f.metadata); err != nil {
+	if err = json.Unmarshal(f.metadataRaw, f.metadata); err != nil {
 		return
 	}
 	return
@@ -97,20 +98,21 @@ func (f *FileLayout) ReadHeadIn(in io.Reader) (err error) {
 
 func (f *FileLayout) WriteHeadOut(out io.Writer, meta *Metadata) (err error) {
 	meta.Timestamp = time.Now()
-	if f.metaJson, err = json.Marshal(meta); err != nil {
+	if f.metadataRaw, err = json.Marshal(meta); err != nil {
 		return
 	}
-	f.metaLen = uint32(len(f.metaJson) & 0xFFFFFFFF)
+	f.metadataLength = uint32(len(f.metadataRaw) & 0xFFFFFFFF)
 	f.magic = FileMagicNumber | '1'
-	f.checksum = make([]byte, 32) // place hold
-	f.dataLen = 0                 // place hold
-	f.metaSum = make([]byte, 32)  // place hold
-	f.dataStart = []byte(layoutDataStart)
+	f.checksum = make([]byte, 32)     // place hold
+	f.dataLength = 0                  // place hold
+	f.headChecksum = make([]byte, 32) // place hold
+	f.dataStartMark = []byte(layoutDataStart)
 	f.nonce = make([]byte, 8)
 	if _, err = rand.Read(f.nonce); err != nil {
 		return
 	}
-	items := []any{f.magic, f.checksum, f.dataLen, f.metaSum, f.metaLen, f.metaJson, f.dataStart, f.nonce}
+	items := []any{f.magic, f.checksum, f.dataLength, f.headChecksum,
+		f.metadataLength, f.metadataRaw, f.dataStartMark, f.nonce}
 	if out == nil {
 		return
 	}
@@ -125,7 +127,7 @@ func (f *FileLayout) WriteHeadOut(out io.Writer, meta *Metadata) (err error) {
 
 func (f *FileLayout) WriteHeadPlaceHolders(
 	out io.WriteSeeker, key *CipherKeyData, check hash.Hash, dataLen int64) (err error) {
-	f.dataLen = uint64(dataLen)
+	f.dataLength = uint64(dataLen)
 	if err = f.makeChecksum(key, check); err != nil {
 		return
 	}
@@ -139,18 +141,18 @@ func (f *FileLayout) WriteHeadPlaceHolders(
 	if _, err = out.Write(f.checksum); err != nil {
 		return
 	}
-	if err = binary.Write(out, layoutByteOrder, f.dataLen); err != nil {
+	if err = binary.Write(out, layoutByteOrder, f.dataLength); err != nil {
 		return
 	}
-	if _, err = out.Write(f.metaSum); err != nil {
+	if _, err = out.Write(f.headChecksum); err != nil {
 		return
 	}
 	return
 }
 
 func (f *FileLayout) makeChecksum(key *CipherKeyData, check hash.Hash) (err error) {
-	f.metaSum = f.makeChecksumHead(key)
-	check.Write(f.metaSum)
+	f.headChecksum = f.makeChecksumHead(key)
+	check.Write(f.headChecksum)
 	f.checksum = check.Sum(nil)
 	return
 }
@@ -160,15 +162,15 @@ func (f *FileLayout) makeChecksumHead(key *CipherKeyData) []byte {
 	magic := make([]byte, 4)
 	endian.PutUint32(magic, f.magic)
 	dataLen := make([]byte, 8)
-	endian.PutUint64(dataLen, f.dataLen)
+	endian.PutUint64(dataLen, f.dataLength)
 	metaLen := make([]byte, 4)
-	endian.PutUint32(metaLen, f.metaLen)
+	endian.PutUint32(metaLen, f.metadataLength)
 	check := key.NewSha256()
 	check.Write(magic)
 	check.Write(dataLen)
 	check.Write(metaLen)
-	check.Write(f.metaJson)
-	check.Write(f.dataStart)
+	check.Write(f.metadataRaw)
+	check.Write(f.dataStartMark)
 	check.Write(f.nonce)
 	return check.Sum(nil)
 }

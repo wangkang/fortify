@@ -68,7 +68,7 @@ func (f *Aes256StreamDecrypter) DecryptFile(in, out *os.File, layout *FileLayout
 	ir := bufio.NewReaderSize(in, 128*1024)
 	ow := bufio.NewWriterSize(out, 256*1024)
 	meta := layout.Metadata()
-	fmt.Printf("%s *-->O %s %d bytes [%s %s]\n", in.Name(), out.Name(), layout.dataLen, meta.Key, meta.Mode)
+	fmt.Printf("%s *-->O %s %d bytes [%s %s]\n", in.Name(), out.Name(), layout.dataLength, meta.Key, meta.Mode)
 	started := time.Now()
 	if err = f.Decrypt(ir, ow, layout, mode); err != nil {
 		return
@@ -89,7 +89,7 @@ func (f *Aes256StreamDecrypter) Decrypt(r io.Reader, w io.Writer, layout *FileLa
 	if err = f.SetupKey(); err != nil {
 		return
 	}
-	expect := layout.metaSum
+	expect := layout.headChecksum
 	actual := layout.makeChecksumHead(f.key)
 	if !bytes.Equal(expect, actual) {
 		return errors.New("invalid checksum of meta")
@@ -121,10 +121,10 @@ func (f *Aes256StreamDecrypter) Decrypt(r io.Reader, w io.Writer, layout *FileLa
 	if cnt, err = io.Copy(writer, reader); err != nil {
 		return
 	}
-	if uint64(cnt) != layout.dataLen {
-		return fmt.Errorf("expect data length is %d, not %d\n", layout.dataLen, cnt)
+	if uint64(cnt) != layout.dataLength {
+		return fmt.Errorf("expect data length is %d, not %d\n", layout.dataLength, cnt)
 	}
-	check.Write(layout.metaSum)
+	check.Write(layout.headChecksum)
 	sum := check.Sum(nil)
 	if !bytes.Equal(layout.checksum, sum) {
 		return errors.New("invalid checksum of file")
