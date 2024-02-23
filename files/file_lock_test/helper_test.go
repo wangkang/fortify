@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -33,7 +32,7 @@ func TestExclusiveLock(t *testing.T) {
 		}
 		wg.Done()
 	}(file, cmd)
-	time.Sleep(800 * time.Millisecond)
+	time.Sleep(1200 * time.Millisecond)
 	if err = files.AcquireSharedLock(fd); err == nil {
 		t.Fatal("Expected failure to acquire shared lock in the current process, but succeeded")
 	} else {
@@ -44,7 +43,7 @@ func TestExclusiveLock(t *testing.T) {
 	} else {
 		fmt.Printf("--- INFO: Failed to acquire exclusive lock: %v\n", err)
 	}
-	_ = cmd.Process.Signal(syscall.SIGKILL)
+	_ = cmd.Process.Signal(os.Kill)
 	wg.Wait()
 }
 
@@ -79,6 +78,6 @@ func TestSharedLock(t *testing.T) {
 	} else {
 		fmt.Printf("--- INFO: Failed to acquire exclusive lock: %v\n", err)
 	}
-	_ = cmd.Process.Signal(syscall.SIGKILL)
+	_ = cmd.Process.Signal(os.Kill)
 	wg.Wait()
 }

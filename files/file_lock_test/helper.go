@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/struqt/fortify/files"
@@ -49,7 +48,7 @@ func main() {
 
 	// Setup signal handling for SIGUSR1
 	signalChannel := make(chan os.Signal, 1)
-	signal.Notify(signalChannel, syscall.SIGUSR1, syscall.SIGINT, syscall.SIGKILL)
+	signal.Notify(signalChannel, os.Interrupt, os.Kill)
 
 	// Wait for signal or sleep for 5 seconds
 	select {
