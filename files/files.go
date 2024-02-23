@@ -26,6 +26,7 @@ func OpenInputFile(name string) (file *os.File, closeFn func(), err error) {
 	}
 	fmt.Printf("%v --> open\n", file.Name())
 	closeFn = func() {
+		_ = ReleaseLock(file.Fd())
 		_ = file.Close()
 		fmt.Printf("%v --> close\n", file.Name())
 	}
@@ -39,6 +40,7 @@ func OpenOutputFile(name string, truncate bool, flags ...int) (file *os.File, cl
 	fmt.Printf("%v <-- open\n", file.Name())
 	closeFn = func() {
 		_ = file.Sync()
+		_ = ReleaseLock(file.Fd())
 		_ = file.Close()
 		fmt.Printf("%v <-- close\n", file.Name())
 	}
@@ -61,6 +63,10 @@ func openForRead(name string) (*os.File, error) {
 	if file, err = os.OpenFile(path, os.O_RDONLY, 0400); err != nil {
 		return nil, err
 	} else {
+		if err = AcquireSharedLock(file.Fd()); err != nil {
+			_ = file.Close()
+			return nil, err
+		}
 		return file, nil
 	}
 }
@@ -90,6 +96,10 @@ func openForWrite(name string, truncate bool, mode os.FileMode, flags ...int) (*
 	}
 	if stat.Size() > 0 {
 		return nil, fmt.Errorf("%s is not empty", path)
+	}
+	if err = AcquireExclusiveLock(file.Fd()); err != nil {
+		_ = file.Close()
+		return nil, err
 	}
 	return file, nil
 }
