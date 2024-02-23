@@ -4,6 +4,8 @@
 name: Go Build
 
 on:
+  create:
+    tags: [ "v*" ]
   push:
     branches: [ "main" ]
   pull_request:
@@ -18,17 +20,52 @@ jobs:
       fail-fast: true
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: 'true'
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go }}
+      - name: Setup Variables
+        if: ${{ matrix.os != 'windows-2022' }}
+        run: |
+          system=$(uname -s | tr '[:upper:]' '[:lower:]')
+          architecture=$(uname -m | tr '[:upper:]' '[:lower:]')
+          tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0")
+          artifact_filename="fortify-${tag}-${system}-${architecture}"
+          echo "Artifact Filename: $artifact_filename"
+          echo "ArtifactTag=$tag" >> $GITHUB_ENV
+          echo "ArtifactFilename=$artifact_filename" >> $GITHUB_ENV
 
-    - name: Build
-      run: go build -v ./...
+      - name: Setup Variables on Windows
+        if: ${{ matrix.os == 'windows-2022' }}
+        run: |
+          $system = "windows"
+          $architecture = $env:PROCESSOR_ARCHITECTURE.ToLower()
+          $tag = git describe --tags --abbrev=0 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            $tag = "v0"
+            $LASTEXITCODE = 0
+          }
+          $artifact_filename = "fortify-${tag}-${system}-${architecture}"
+          Write-Host "Artifact Filename: $artifact_filename"
+          echo "ArtifactTag=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "ArtifactFilename=$artifact_filename" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-    - name: Test
-      run: go test -v ./...
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Test
+        run: go test -v ./...
+
+      - name: Build
+        #run: go build -v ./...
+        run: go build -ldflags "-s -w" -v -o ./${{ env.ArtifactFilename }}
+
+      - name: Upload
+        if: ${{ env.ArtifactTag != 'v0' }}
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 10
+          name: ${{ env.ArtifactFilename }}
+          path: ${{ github.workspace }}/${{ env.ArtifactFilename }}
