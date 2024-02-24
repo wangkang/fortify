@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  create: { tags: [ "v*" ] }
+  push: { branches: [ "main", "feature/github" ] }
+  pull_request: { branches: [ "main" ] }
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    name: Build & Upload
+    uses: ./.github/workflows/_build.yml
+    with: { safe-checkout: '${{ github.sha }}' }
+  release:
+    name: Release ${{ github.ref }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/download-artifact@v4
+        with: { path: /tmp/artifacts, pattern: '*' }
+      - run: ls -lhAR /tmp/artifacts
+      - name: Release ${{ github.ref }}
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.TOKEN_FOR_RELEASE }}
+          files: "/tmp/artifacts/**/*"
+          fail_on_unmatched_files: false

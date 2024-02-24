@@ -4,12 +4,14 @@
 name: Go Build
 
 on:
-  create:
-    tags: [ "v*" ]
-  push:
-    branches: [ "main", "feature/github" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_call:
+    inputs:
+      safe-checkout:
+        required: true
+        description: "The SHA key for the commit we want to run over"
+        type: string
+  #workflow_call
+#on
 
 jobs:
   build:
