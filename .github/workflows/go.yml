@@ -98,10 +98,27 @@ jobs:
         #run: go build -v ./...
         run: |
           go build -ldflags "-s -w" -v -o ./${{ env.ArtifactFilename }}
+          file ./${{ env.ArtifactFilename }}
           ./${{ env.ArtifactFilename }} version
 
       - name: Upload
         if: env.ArtifactTag != 'v0'
+        uses: actions/upload-artifact@v4
+        with:
+          retention-days: 3
+          name: ${{ env.ArtifactFilename }}
+          path: ${{ github.workspace }}/${{ env.ArtifactFilename }}
+
+      - name: Build Darwin Arm64
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          artifact_filename="fortify-darwin-arm64"
+          GOARCH=arm64 GOOS=darwin go build -ldflags "-s -w" -v -o ./${artifact_filename}
+          file ./${artifact_filename}
+          echo "ArtifactFilename=$artifact_filename" >> $GITHUB_ENV
+
+      - name: Upload Darwin Arm64
+        if: env.ArtifactTag != 'v0' && startsWith(matrix.os, 'macos')
         uses: actions/upload-artifact@v4
         with:
           retention-days: 3
