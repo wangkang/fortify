@@ -1,6 +1,6 @@
 # Fortify
 
-[![Go Build](https://github.com/struqt/fortify/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/struqt/fortify/actions/workflows/go.yml)
+[![Release](https://github.com/wangkang/fortify/actions/workflows/release.yml/badge.svg)](https://github.com/wangkang/fortify/actions/workflows/release.yml)
 
 **Fortify** is a command-line tool designed to enhance file security through encryption.
 

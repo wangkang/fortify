@@ -1,33 +1,31 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: Go Build
+name: "Build"
 
 on:
   workflow_call:
     inputs:
-      safe-checkout:
-        required: true
-        description: "The SHA key for the commit we want to run over"
-        type: string
-  #workflow_call
-#on
+      safe-checkout: { type: string, required: true, description: "The SHA key for the commit we want to run over" }
+      os: { type: string, required: true, description: "Name of the OS that jobs run on" }
+      go-version: { type: string, required: true, description: "Version of Go" }
+  workflow_dispatch:
+    inputs:
+      os: { type: string, default: 'ubuntu-latest', description: "Name of the OS that jobs run on" }
+      go-version: { type: string, default: '1.21', description: "Version of Go" }
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        go: [ '1.21' ]
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-      fail-fast: true
-    runs-on: ${{ matrix.os }}
+  build-and-upload:
+    name: "Build & Upload"
+    runs-on: ${{ inputs.os }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.safe-checkout }}
           submodules: 'true'
 
       - name: Setup Variables
-        if: ${{ ! startsWith(matrix.os, 'windows') }}
+        if: ${{ ! startsWith(inputs.os, 'windows') }}
         run: |
           git_version_tag() {
             local exact_tag
@@ -53,7 +51,7 @@ jobs:
           echo "Artifact Filename: $artifact_filename"
 
       - name: Setup Variables on Windows
-        if: startsWith(matrix.os, 'windows')
+        if: startsWith(inputs.os, 'windows')
         run: |
           function Get-GitVersionTag {
             $exactTag = git describe --tags --exact-match 2>$null
@@ -91,7 +89,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version: ${{ inputs.go-version }}
 
       - name: Test
         run: go test -v ./...
@@ -112,7 +110,7 @@ jobs:
           path: ${{ github.workspace }}/${{ env.ArtifactFilename }}
 
       - name: Build Darwin Arm64
-        if: startsWith(matrix.os, 'macos')
+        if: startsWith(inputs.os, 'macos')
         run: |
           artifact_filename="fortify-darwin-arm64"
           GOARCH=arm64 GOOS=darwin go build -ldflags "-s -w" -v -o ./${artifact_filename}
@@ -120,7 +118,7 @@ jobs:
           echo "ArtifactFilename=$artifact_filename" >> $GITHUB_ENV
 
       - name: Upload Darwin Arm64
-        if: env.ArtifactTag != 'v0' && startsWith(matrix.os, 'macos')
+        if: env.ArtifactTag != 'v0' && startsWith(inputs.os, 'macos')
         uses: actions/upload-artifact@v4
         with:
           retention-days: 3
