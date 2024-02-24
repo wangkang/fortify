@@ -51,6 +51,14 @@ build() {
   popd >/dev/null || exit 1
 }
 
+version() {
+  local version_tag
+  version_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0")
+  local version_file="${SELF_DIR}/cmd/version.go"
+  sed -e "s|#VERSION|${version_tag}|g" < "${version_file}-e" > "${version_file}"
+}
+
+version
 check
 cleanup
 build .

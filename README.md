@@ -51,7 +51,7 @@ bash build.sh
 ```
 
 ```shell
-pushd build && ./fortify -h; popd
+pushd build && ./fortify -h && ./fortify version; popd
 ```
 
 ## Working with SSS (Shamir's Secret Sharing)

@@ -30,10 +30,11 @@ jobs:
           system=$(uname -s | tr '[:upper:]' '[:lower:]')
           architecture=$(uname -m | tr '[:upper:]' '[:lower:]')
           tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0")
-          artifact_filename="fortify-${tag}-${system}-${architecture}"
+          artifact_filename="fortify-${system}-${architecture}"
           echo "Artifact Filename: $artifact_filename"
           echo "ArtifactTag=$tag" >> $GITHUB_ENV
           echo "ArtifactFilename=$artifact_filename" >> $GITHUB_ENV
+          sed -e "s|#VERSION|${tag}|g" < "cmd/version.go-e" > "cmd/version.go"
 
       - name: Setup Variables on Windows
         if: ${{ matrix.os == 'windows-2022' }}
@@ -45,10 +46,11 @@ jobs:
             $tag = "v0"
             $LASTEXITCODE = 0
           }
-          $artifact_filename = "fortify-${tag}-${system}-${architecture}"
+          $artifact_filename = "fortify-${system}-${architecture}"
           Write-Host "Artifact Filename: $artifact_filename"
           echo "ArtifactTag=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "ArtifactFilename=$artifact_filename" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          (Get-Content "cmd/version.go-e") -replace '#VERSION', $tag | Set-Content "cmd/version.go"
 
       - name: Setup Go
         uses: actions/setup-go@v5
