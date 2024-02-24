@@ -49,13 +49,28 @@ build() {
   echo -e "Built: ${OUT_DIR}/${file}" >&1
   ln -s "${OUT_DIR}/${file}" "${OUT_DIR}/${cmd}"
   popd >/dev/null || exit 1
+  "${OUT_DIR}/${cmd}" version
 }
 
 version() {
   local version_tag
-  version_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0")
+  version_tag=$(git_version_tag)
   local version_file="${SELF_DIR}/cmd/version.go"
   sed -e "s|#VERSION|${version_tag}|g" < "${version_file}-e" > "${version_file}"
+}
+
+git_version_tag() {
+  local exact_tag
+  exact_tag=$(git describe --tags --exact-match 2>/dev/null || echo '')
+  if [ -n "$exact_tag" ]; then
+    echo "$exact_tag"
+  else
+    local latest_tag
+    latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo 'v0')
+    local latest_commit
+    latest_commit=$(git rev-parse --short=7 HEAD)
+    echo "$latest_tag-$latest_commit"
+  fi
 }
 
 version

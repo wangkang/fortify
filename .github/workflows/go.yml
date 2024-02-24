@@ -27,30 +27,63 @@ jobs:
       - name: Setup Variables
         if: ${{ ! startsWith(matrix.os, 'windows') }}
         run: |
+          git_version_tag() {
+            local exact_tag
+            exact_tag=$(git describe --tags --exact-match 2>/dev/null || echo '')
+            if [ -n "$exact_tag" ]; then
+              echo "$exact_tag"
+            else
+              local latest_tag
+              latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo 'v0')
+              local latest_commit
+              latest_commit=$(git rev-parse --short=7 HEAD)
+              echo "$latest_tag-$latest_commit"
+            fi
+          }
+          tag=$(git_version_tag)
           system=$(uname -s | tr '[:upper:]' '[:lower:]')
           architecture=$(uname -m | tr '[:upper:]' '[:lower:]')
-          tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0")
           artifact_filename="fortify-${system}-${architecture}"
-          echo "Artifact Filename: $artifact_filename"
           echo "ArtifactTag=$tag" >> $GITHUB_ENV
           echo "ArtifactFilename=$artifact_filename" >> $GITHUB_ENV
           sed -e "s|#VERSION|${tag}|g" < "cmd/version.go-e" > "cmd/version.go"
+          echo "Artifact Version:  $tag"
+          echo "Artifact Filename: $artifact_filename"
 
       - name: Setup Variables on Windows
         if: startsWith(matrix.os, 'windows')
         run: |
-          $system = "windows"
-          $architecture = $env:PROCESSOR_ARCHITECTURE.ToLower()
-          $tag = git describe --tags --abbrev=0 2>$null
+          function Get-GitVersionTag {
+            $exactTag = git describe --tags --exact-match 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              $LASTEXITCODE = 0
+            }
+            if ($exactTag) {
+              Write-Output $exactTag
+            } else {
+              $latestTag = git describe --tags --abbrev=0 2>$null
+              if ($LASTEXITCODE -ne 0) {
+                $LASTEXITCODE = 0
+              }
+              if (-not $latestTag) {
+                $latestTag = 'v0'
+              }
+              $latestCommit = (git rev-parse --short=7 HEAD).Trim()
+              Write-Output "$latestTag-$latestCommit"
+            }
+          }
+          $tag = Get-GitVersionTag
           if ($LASTEXITCODE -ne 0) {
-            $tag = "v0"
             $LASTEXITCODE = 0
           }
+          $system = "windows"
+          $architecture = $env:PROCESSOR_ARCHITECTURE.ToLower()
           $artifact_filename = "fortify-${system}-${architecture}"
-          Write-Host "Artifact Filename: $artifact_filename"
           echo "ArtifactTag=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "ArtifactFilename=$artifact_filename" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           (Get-Content "cmd/version.go-e") -replace '#VERSION', $tag | Set-Content "cmd/version.go"
+          Write-Host "Artifact Version:  $tag"
+          Write-Host "Artifact Filename: $artifact_filename"
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -62,7 +95,9 @@ jobs:
 
       - name: Build
         #run: go build -v ./...
-        run: go build -ldflags "-s -w" -v -o ./${{ env.ArtifactFilename }}
+        run: |
+          go build -ldflags "-s -w" -v -o ./${{ env.ArtifactFilename }}
+          ./${{ env.ArtifactFilename }} version
 
       - name: Upload
         if: env.ArtifactTag != 'v0'
