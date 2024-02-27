@@ -26,9 +26,11 @@ type Metadata struct {
 }
 
 type Fortifier struct {
-	meta  *Metadata
-	key   *CipherKeyData
-	block cipher.Block
+	meta     *Metadata
+	key      *CipherKeyData
+	verbose  bool
+	truncate bool
+	block    cipher.Block
 }
 
 func NewEncrypter(mode CipherModeName, f *Fortifier) Encrypter {

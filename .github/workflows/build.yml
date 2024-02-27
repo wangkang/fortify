@@ -6,7 +6,6 @@ name: "Build"
 on:
   workflow_call:
     inputs:
-      safe-checkout: { type: string, required: true, description: "The SHA key for the commit we want to run over" }
       os: { type: string, required: true, description: "Name of the OS that jobs run on" }
       go-version: { type: string, required: true, description: "Version of Go" }
   workflow_dispatch:
@@ -21,13 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.safe-checkout }}
           submodules: 'true'
+          fetch-depth: 30
 
       - name: Setup Variables
         if: ${{ ! startsWith(inputs.os, 'windows') }}
         run: |
           git_version_tag() {
+            git fetch --tags
             local exact_tag
             exact_tag=$(git describe --tags --exact-match 2>/dev/null || echo '')
             if [ -n "$exact_tag" ]; then
@@ -54,6 +54,7 @@ jobs:
         if: startsWith(inputs.os, 'windows')
         run: |
           function Get-GitVersionTag {
+            git fetch --tags
             $exactTag = git describe --tags --exact-match 2>$null
             if ($LASTEXITCODE -ne 0) {
               $LASTEXITCODE = 0

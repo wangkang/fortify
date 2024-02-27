@@ -1,96 +1,169 @@
 # Fortify
 
-[![Release](https://github.com/wangkang/fortify/actions/workflows/release.yml/badge.svg)](https://github.com/wangkang/fortify/actions/workflows/release.yml)
-
 **Fortify** is a command-line tool designed to enhance file security through encryption.
-
-It uses AES-256 as the encryption method.
-The AES-256 secret key is protected using either Shamir's Secret Sharing (SSS) or RSA encryption.
 
 ## Features
 
+* Fortifies any file through encryption, then decrypts or executes the fortified files.
 * Encrypts file using AES-256.
-* Protects the AES key with either Shamir's Secret Sharing (SSS) or RSA encryption.
-* Offers functionalities for encryption, decryption, and execution of fortified files.
+* Protects the AES secret key with either Shamir's Secret Sharing (SSS) or RSA encryption.
 
 ## Usage Overview
 
-#### With SSS
+### Shamir's Secret Sharing (SSS)
 
-- Encrypt/decrypt/execute with specified key parts:
-    1. Generate key parts: `fortify sss random -p <number_of_shares> -t <threshold> --prefix <key_prefix>`
-    2. Encrypt: `fortify encrypt -i <input_file> <key_part1> <key_part2> ...`
-    3. Decrypt: `fortify decrypt -i <fortified_file> <key_part1> <key_part2> ...`
-    4. Execute: `fortify execute -i <fortified_file> <key_part1> <key_part2> ...`
-- Encrypt with randomly generated key parts: `fortify encrypt -i <input_file> -o <output_file>`
+#### Encryption
 
-#### With RSA
+Encrypt files with randomly generated key parts:
 
-* Encrypt with public key: `fortify encrypt -i <input_file> -k rsa <public_key_file>`
-* Decrypt with private key: `fortify decrypt -i <fortified_file> <private_key_file>`
-* Execute with private key: `fortify execute -i <fortified_file> <private_key_file>`
+```
+fortify encrypt -i <input_file> -o <output_file>
+```
 
-## License
+Encrypt files with specified key parts:
 
-This project is licensed under the MIT License.
+```
+fortify sss random -b 32 -p <number_of_shares> -t <threshold>
+fortify encrypt -i <input_file> <key_part1> <key_part2> ...
+```
+
+#### Decryption
+
+Decrypt files with specified key parts:
+
+```
+fortify decrypt -i <fortified_file> <key_part1> <key_part2> ...
+```
+
+#### Execution
+
+Execute fortified files with specified key parts:
+
+```
+fortify execute -i <fortified_file> <key_part1> <key_part2> ...
+```
+
+### RSA Encryption
+
+#### Encryption
+
+Encrypt files with RSA public key:
+
+```
+fortify encrypt -i <input_file> -k rsa <public_key_file>
+```
+
+#### Decryption
+
+Decrypt files with RSA private key:
+
+```
+fortify decrypt -i <fortified_file> <private_key_file>
+```
+
+#### Execution
+
+Execute fortified files with RSA private key:
+
+```
+fortify execute -i <fortified_file> <private_key_file>
+```
 
 ---
 
 # Developer's Guide
 
+[![Release](https://github.com/wangkang/fortify/actions/workflows/release.yml/badge.svg)](https://github.com/wangkang/fortify/actions/workflows/release.yml)
+
+## License
+
+This project is licensed under the MIT License.
+
 ## Contributing
 
-Feel free to contribute by submitting issues or pull requests. We welcome any suggestions or improvements.
+We welcome contributions through issue submissions and pull requests. Feel free to suggest improvements or report
+issues.
 
 ## Build
 
-To build the current workspace, run the following command:
+To build the project, run:
 
 ```shell
 bash build.sh
 ```
 
+After building, execute the following commands to confirm the result:
+
 ```shell
 pushd build && ./fortify -h && ./fortify version; popd
 ```
 
-## Working with SSS (Shamir's Secret Sharing)
+## Shamir's Secret Sharing (SSS)
 
-### Encrypt with Random New Key Parts
+### Splitting and Combining Secret Shares
 
-```shell
-pushd build/sss && ../fortify encrypt -i ../fortify -o fortified; popd
-```
-
-This command encrypts the specified file using Shamir's Secret Sharing with randomly generated key parts.
-
-### Encrypt and Decrypt with Specified Key Parts
-
-Generate random key parts:
+To split and combine secret shares, use the following commands:
 
 ```shell
-pushd build && ./fortify sss random -p3 -t2 --prefix ../debug/key_sss/p; popd
+pushd build/sss && ../fortify sss split -vT ../fortify; popd
 ```
-
-Encrypt the file using specified key parts:
 
 ```shell
-pushd build && ./fortify encrypt -i fortify -T ../debug/key_sss/p3of3.json ../debug/key_sss/p1of3.json; popd
+pushd build/sss && ../fortify sss combine -o combined.out -vT 1of5.json 3of5.json 5of5.json; popd
 ```
 
-Decrypt the fortified file using specified key parts:
+**Tips:**
+
+- For enhanced security, store generated secret shares in different locations.
+- While suitable for processing large files, this method may not be optimal for smaller files.
+
+### Encrypting with Randomly Generated Secret Key
+
+Encrypt files with randomly generated key parts:
 
 ```shell
-pushd build && ./fortify decrypt -i fortified.data ../debug/key_sss/p1of3.json ../debug/key_sss/p2of3.json; popd
+pushd build/sss && ../fortify encrypt -i ../fortify -T; popd
 ```
 
-Execute the fortified file using specified key parts:
+Decrypt fortified files with specified key parts:
 
 ```shell
-pushd build && ./fortify execute -i fortified.data ../debug/key_sss/p2of3.json ../debug/key_sss/p3of3.json; popd
+pushd build/sss && ../fortify decrypt -i fortified.data -T fortified.key1of2.json fortified.key2of2.json; popd
 ```
 
-## Working with RSA
+Execute fortified files with specified key parts:
+
+```shell
+pushd build/sss && ../fortify execute -i fortified.data fortified.key1of2.json fortified.key2of2.json -- encrypt -h; popd
+```
+
+### Encrypting and Decrypting with Specified Key Parts
+
+Generate new random key parts:
+
+```shell
+pushd build/sss && ../fortify sss random -p3 -t2 --prefix p; popd
+```
+
+Encrypt files using specified key parts:
+
+```shell
+pushd build/sss && ../fortify encrypt -i ../fortify -vT p1of3.json p2of3.json; popd
+```
+
+Decrypt fortified files using specified key parts:
+
+```shell
+pushd build/sss && ../fortify decrypt -i fortified.data -vT p1of3.json p3of3.json; popd
+```
+
+Execute fortified files using specified key parts:
+
+```shell
+pushd build/sss && ../fortify execute -i fortified.data p2of3.json p3of3.json; popd
+```
+
+## RSA Encryption
 
 Generate RSA key pairs:
 
@@ -98,49 +171,49 @@ Generate RSA key pairs:
 bash debug_keygen.sh
 ```
 
-### Encrypt with RSA Public Key
+### Encrypting with RSA Public Key
 
-Encrypt the file using an RSA public key:
+Encrypt files using RSA public key:
 
 ```shell
-pushd build/rsa && ../fortify encrypt -i ../fortify -T -k rsa ../../debug/key_rsa/id_rsa.pub; popd
+pushd build/rsa && ../fortify encrypt -i ../fortify -k rsa -vT ../../debug/key_rsa/id_rsa.pub; popd
 ```
 
-Encrypt the file using an RSA public key in PEM format:
+Encrypt files using RSA public key in PEM format:
 
 ```shell
-pushd build/rsa && ../fortify encrypt -i ../fortify -T -k rsa ../../debug/key_rsa/id_rsa_pem.pub; popd
+pushd build/rsa && ../fortify encrypt -i ../fortify -k rsa -vT ../../debug/key_rsa/id_rsa_pem.pub; popd
 ```
 
 ```shell
-pushd build/rsa && ../fortify encrypt -i ../fortify -T -k rsa ../../debug/key_rsa/id_rsa_pkcs8.pub; popd
+pushd build/rsa && ../fortify encrypt -i ../fortify -k rsa  -vT ../../debug/key_rsa/id_rsa_pkcs8.pub; popd
 # Will Fail
 ```
 
 > - PKCS #8 public key is unsupported
 
 ```shell
-pushd build/rsa && ../fortify encrypt -i ../fortify -T -k rsa ../../debug/key_rsa/id_rsa_rfc4716.pub; popd
+pushd build/rsa && ../fortify encrypt -i ../fortify -k rsa -vT ../../debug/key_rsa/id_rsa_rfc4716.pub; popd
 # Will Fail
 ```
 
 > - RFC 4716 public key is unsupported
 
-### Execute the Fortified File with RSA Private Key
+### Execute Fortified Files with RSA Private Key
 
-Execute the fortified file using an RSA private key:
+Execute fortified files using RSA private key:
 
 ```shell
 pushd build/rsa && ../fortify execute -i fortified.data ../../debug/key_rsa/id_rsa; popd
 ```
 
-Execute the fortified file using an RSA private key in PEM format:
+Execute fortified files using RSA private key in PEM format:
 
 ```shell
 pushd build/rsa && ../fortify execute -i fortified.data ../../debug/key_rsa/id_rsa_pem; popd
 ```
 
-Execute the fortified file using an RSA private key in RFC 4716 format:
+Execute fortified files using RSA private key in RFC 4716 format:
 
 ```shell
 pushd build/rsa && ../fortify execute -i fortified.data ../../debug/key_rsa/id_rsa_rfc4716; popd
@@ -152,3 +225,5 @@ pushd build/rsa && ../fortify execute -i fortified.data ../../debug/key_rsa/id_r
 ```
 
 > - encrypted PKCS #8 private key is unsupported
+
+---

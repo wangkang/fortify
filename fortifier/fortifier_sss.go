@@ -14,7 +14,7 @@ type MetadataSss struct {
 	Threshold uint8     `json:"threshold"`
 }
 
-func NewFortifierWithSss(parts []sss.Part) *Fortifier {
+func NewFortifierWithSss(verbose, truncate bool, parts []sss.Part) *Fortifier {
 	var m *MetadataSss
 	if len(parts) > 0 {
 		m = &MetadataSss{
@@ -27,13 +27,16 @@ func NewFortifierWithSss(parts []sss.Part) *Fortifier {
 		m = &MetadataSss{Parts: 2, Threshold: 2}
 	}
 	return &Fortifier{
-		meta: &Metadata{Sss: m},
-		key:  &CipherKeyData{kind: CipherKeyKindSSS, parts: parts},
+		meta:     &Metadata{Sss: m},
+		key:      &CipherKeyData{kind: CipherKeyKindSSS, parts: parts},
+		verbose:  verbose,
+		truncate: truncate,
 	}
 }
 
 func (f *Fortifier) setupSssKey() (err error) {
 	f.meta.Key = CipherKeyKindSSS
+	f.meta.Timestamp = time.Now()
 	if len(f.key.parts) > 0 {
 		if f.key.raw, err = sss.Combine(f.key.parts); err != nil {
 			return
@@ -49,7 +52,7 @@ func (f *Fortifier) setupSssKey() (err error) {
 		if ps, err = sss.Split(raw, meta.Sss.Parts, meta.Sss.Threshold); err != nil {
 			return
 		}
-		if err = sss.AppendParts(ps, 0, 1, "fortified.key"); err != nil {
+		if err = sss.AppendParts(ps, 0, 1, "fortified.key", f.truncate); err != nil {
 			return
 		}
 		defer sss.CloseAllFilesForWrite()

@@ -38,7 +38,7 @@ func Split(secret []byte, parts, threshold uint8) ([]Part, error) {
 	return outParts, nil
 }
 
-func SplitIntoFiles(in string, parts, threshold uint8, prefix string) error {
+func SplitIntoFiles(in string, parts, threshold uint8, prefix string, truncate, verbose bool) error {
 	file, closer, err := files.OpenInputFile(in)
 	if err != nil {
 		return err
@@ -63,11 +63,15 @@ func SplitIntoFiles(in string, parts, threshold uint8, prefix string) error {
 		if err != nil {
 			return err
 		}
-		err = AppendParts(ps, block, blocks, prefix)
+		err = AppendParts(ps, block, blocks, prefix, truncate)
 		if err != nil {
 			return err
 		}
 		block++
+		if verbose {
+			w := len(fmt.Sprintf("%d", blocks))
+			fmt.Printf("Block %*d/%d OK\n", w, block, blocks)
+		}
 		if bytesRead < fileBlockSize {
 			break
 		}
@@ -75,7 +79,7 @@ func SplitIntoFiles(in string, parts, threshold uint8, prefix string) error {
 	return nil
 }
 
-func AppendParts(ps []Part, block, blocks int, prefix string) error {
+func AppendParts(ps []Part, block, blocks int, prefix string, truncate bool) error {
 	size := len(ps)
 	var wg sync.WaitGroup
 	wg.Add(size)
@@ -83,9 +87,9 @@ func AppendParts(ps []Part, block, blocks int, prefix string) error {
 	for i, p := range ps {
 		{
 			path := fmt.Sprintf("%s%dof%d.json", prefix, p.Part, p.Parts)
-			file := OpenFileForWrite(path)
-			if file == nil {
-				return fmt.Errorf("can not open file: %s", path)
+			file, err := OpenFileForWrite(path, truncate)
+			if err != nil {
+				return err
 			}
 			ps[i].file = file
 			ps[i].Block = block + 1
@@ -109,8 +113,6 @@ func AppendParts(ps []Part, block, blocks int, prefix string) error {
 			return err
 		}
 	}
-	w := len(fmt.Sprintf("%d", blocks))
-	fmt.Printf("Block %*d/%d OK\n", w, block+1, blocks)
 	return nil
 }
 
@@ -143,21 +145,21 @@ var openedFilesForWrite = make(map[string]*os.File)
 var openedFilesForWriteCloser = make(map[string]func())
 var openedFilesForWriteLock sync.Mutex
 
-func OpenFileForWrite(path string) *os.File {
+func OpenFileForWrite(path string, truncate bool) (*os.File, error) {
 	openedFilesForWriteLock.Lock()
 	defer openedFilesForWriteLock.Unlock()
 	file, _ := openedFilesForWrite[path]
 	if file != nil {
-		return file
+		return file, nil
 	}
 	var err error
 	var closer func()
-	if file, closer, err = files.OpenOutputFile(path, true); err != nil {
-		return nil
+	if file, closer, err = files.OpenOutputFile(path, truncate); err != nil {
+		return nil, err
 	}
 	openedFilesForWrite[path] = file
 	openedFilesForWriteCloser[path] = closer
-	return file
+	return file, nil
 }
 
 func CloseAllFilesForWrite() {

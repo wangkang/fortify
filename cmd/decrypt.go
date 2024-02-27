@@ -10,21 +10,33 @@ import (
 )
 
 func init() {
-	var i, o string
-	var T bool
-	sub := &cobra.Command{Use: "decrypt", Short: "Decrypt the fortified file"}
-	sub.Flags().StringVarP(&i, "in", "i", "", "path of the fortified input file")
-	sub.Flags().StringVarP(&o, "out", "o", "/dev/null", "path of the output decrypted file")
-	sub.Flags().BoolVarP(&T, "truncate", "T", false, "truncate the output file before write")
-	_ = sub.MarkFlagRequired("in")
-	sub.Args = cobra.MinimumNArgs(1)
-	sub.RunE = func(_ *cobra.Command, args []string) error {
-		return decrypt(i, o, T, args)
+	var o string
+	c := &cobra.Command{
+		Short: "Decrypt the fortified input file",
+		Use:   "decrypt -i <input-file> [flags] <key1> [key2] ...",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return decrypt(flagIn, o, args)
+		},
 	}
-	root.AddCommand(sub)
+	c.SetUsageTemplate(fmt.Sprintf(`%s
+Required Arguments:
+Required Arguments:
+  <key1>   Path to the first secret share file or private key file if cipher key kind of <input-file> is 'rsa'
+  [key2]   [Required cipher key kind of <input-file> is 'sss'] Path to the second secret share file
+  ...      Additional paths to secret share files (all files remain unmodified)
+`, c.UsageTemplate()))
+	root.AddCommand(c)
+	initFlagHelp(c)
+	initFlagTruncate(c)
+	initFlagVerbose(c)
+	initFlagIn(c, "[Required] Path of the fortified/encrypted input file")
+	_ = c.MarkFlagRequired("in")
+	c.Flags().StringVarP(&o, "out", "o", "output.data", "Path of the output decrypted file")
 }
 
-func decrypt(input, output string, truncate bool, args []string) (err error) {
+func decrypt(input, output string, args []string) (err error) {
+	files.SetVerbose(flagVerbose)
 	var in, out *os.File
 	var iCloseFn, oCloseFn func()
 	if in, iCloseFn, err = files.OpenInputFile(input); err != nil {
@@ -35,10 +47,12 @@ func decrypt(input, output string, truncate bool, args []string) (err error) {
 	if err = layout.ReadHeadIn(in); err != nil {
 		return
 	}
-	fmt.Printf("%s\n", layout)
+	if flagVerbose {
+		fmt.Printf("%s\n", layout.String())
+	}
 	meta := layout.Metadata()
 	var f *fortifier.Fortifier
-	if f, err = newFortifier(meta.Key, meta, args); err != nil {
+	if f, _, err = newFortifier(meta.Key, meta, args); err != nil {
 		return
 	}
 	var dec fortifier.Decrypter
@@ -46,7 +60,7 @@ func decrypt(input, output string, truncate bool, args []string) (err error) {
 		err = fmt.Errorf("unknown cipher mode name: %s", meta.Mode)
 		return
 	}
-	if out, oCloseFn, err = files.OpenOutputFile(output, truncate); err != nil {
+	if out, oCloseFn, err = files.OpenOutputFile(output, flagTruncate); err != nil {
 		return
 	}
 	defer oCloseFn()

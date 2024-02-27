@@ -9,7 +9,6 @@ import (
 	"hash"
 	"io"
 	"reflect"
-	"time"
 )
 
 const FileMagicNumber = uint32(0x40F1ED00)
@@ -44,10 +43,8 @@ func (f *FileLayout) Metadata() *Metadata {
 }
 
 func (f *FileLayout) String() string {
-	return fmt.Sprintf("------------------------------\n"+
-		"Magic: %X\nVersion: %c\nChecksum: %X\nData Length: %d\n"+
-		"Head Checksum: %X\nMetadata Length: %d\nMetadata Raw: %s\nData Start Mark: %s\nNonce: %X\n"+
-		"------------------------------",
+	return fmt.Sprintf("\nMagic: %X\nVersion: %c\nChecksum: %X\nData Length: %d\n"+
+		"Head Checksum: %X\nMetadata Length: %d\nMetadata Raw: %s\nData Start Mark: %s\nNonce: %X\n",
 		f.magic, f.Version(), f.checksum, f.dataLength, f.headChecksum,
 		f.metadataLength, f.metadataRaw, f.dataStartMark, f.nonce,
 	)
@@ -96,13 +93,13 @@ func (f *FileLayout) ReadHeadIn(in io.Reader) (err error) {
 	return
 }
 
-func (f *FileLayout) WriteHeadOut(out io.Writer, meta *Metadata) (err error) {
-	meta.Timestamp = time.Now()
-	if f.metadataRaw, err = json.Marshal(meta); err != nil {
+func (f *FileLayout) WriteHeadOut(out io.Writer) (err error) {
+	f.magic = FileMagicNumber | '1'
+	f.version = rune(0xFF & f.magic)
+	if f.metadataRaw, err = json.Marshal(f.metadata); err != nil {
 		return
 	}
 	f.metadataLength = uint32(len(f.metadataRaw) & 0xFFFFFFFF)
-	f.magic = FileMagicNumber | '1'
 	f.checksum = make([]byte, 32)     // place hold
 	f.dataLength = 0                  // place hold
 	f.headChecksum = make([]byte, 32) // place hold

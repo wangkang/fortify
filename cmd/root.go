@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/pem"
 	"fmt"
 	"io"
 	"os"
@@ -13,23 +12,30 @@ import (
 )
 
 var root = &cobra.Command{Use: "fortify", Short: "Enhance file security through encryption"}
+var ssss = &cobra.Command{Use: "sss", Short: "Shamir's secret sharing"}
 
-func newFortifier(kind fortifier.CipherKeyKind, meta *fortifier.Metadata, args []string) (*fortifier.Fortifier, error) {
+func init() {
+	root.AddCommand(ssss)
+}
+
+func newFortifier(
+	kind fortifier.CipherKeyKind, meta *fortifier.Metadata, args []string,
+) (*fortifier.Fortifier, []string, error) {
 	switch kind {
 	case fortifier.CipherKeyKindSSS:
 		if parts, err := sss.CombineKeyFiles(args); err != nil {
-			return nil, err
+			return nil, args, err
 		} else {
-			return fortifier.NewFortifierWithSss(parts), nil
+			return fortifier.NewFortifierWithSss(flagVerbose, flagTruncate, parts), args[len(parts):], nil
 		}
 	case fortifier.CipherKeyKindRSA:
 		if kb, err := readKeyFile(args); err != nil {
-			return nil, err
+			return nil, args, err
 		} else {
-			return fortifier.NewFortifierWithRsa(meta, kb), nil
+			return fortifier.NewFortifierWithRsa(flagVerbose, meta, kb), args[1:], nil
 		}
 	default:
-		return nil, fmt.Errorf("unknown cipher key kind: %s", kind)
+		return nil, args, fmt.Errorf("unknown cipher key kind: %s", kind)
 	}
 }
 
@@ -46,18 +52,6 @@ func readKeyFile(args []string) (kb []byte, err error) {
 	defer kCloseFn()
 	if kb, err = io.ReadAll(kf); err != nil {
 		return
-	}
-	return
-}
-
-func decodePemFile(kb []byte) (blocks []pem.Block, err error) {
-	for {
-		var blk *pem.Block
-		blk, kb = pem.Decode(kb)
-		if blk == nil || blk.Type == "" {
-			break
-		}
-		blocks = append(blocks, *blk)
 	}
 	return
 }

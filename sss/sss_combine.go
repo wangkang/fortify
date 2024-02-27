@@ -50,11 +50,13 @@ func CombineKeyFiles(args []string) (parts []Part, err error) {
 	}
 	kCloseFns := make([]func(), size)
 	kParts := make([]Part, size)
+	count := 0
 	for i, name := range args {
 		var kf *os.File
 		if kf, kCloseFns[i], err = files.OpenInputFile(name); err != nil {
-			return
+			break
 		}
+		count++
 		var kb []byte
 		if kb, err = io.ReadAll(kf); err != nil {
 			return
@@ -64,18 +66,19 @@ func CombineKeyFiles(args []string) (parts []Part, err error) {
 			return
 		}
 	}
+	kCloseFns = kCloseFns[:count]
 	defer func() {
 		for _, kCloseFn := range kCloseFns {
 			kCloseFn()
 		}
 	}()
-	return kParts, nil
+	return kParts[:count], nil
 }
 
-func CombinePartFiles(in []string, out string, truncate bool) error {
+func CombinePartFiles(in []string, out string, truncate, verbose bool) error {
 	size := len(in)
 	if size == 0 {
-		return nil
+		return errors.New("no input files")
 	}
 	var output *os.File = nil
 	var oCloseFn func()
@@ -154,7 +157,7 @@ func CombinePartFiles(in []string, out string, truncate bool) error {
 			fmt.Printf("Actual secret digest: %s\n", actual)
 			return errors.New("secret digest mismatch")
 		}
-		if count == 0 {
+		if count == 0 && verbose {
 			fmt.Printf("Blocks count: %d\n", blocks)
 		}
 		if count == 0 && output != nil {
@@ -177,12 +180,14 @@ func CombinePartFiles(in []string, out string, truncate bool) error {
 			}
 		}
 		count++
-		l := len(secret)
-		w := len(fmt.Sprintf("%d", blocks))
-		if output != nil {
-			fmt.Printf("Block %*d/%d OK -- recovered %d bytes and appended them into %s\n", w, block, blocks, l, out)
-		} else {
-			fmt.Printf("Block %*d/%d OK -- recovered %d bytes\n", w, block, blocks, l)
+		if verbose {
+			l := len(secret)
+			w := len(fmt.Sprintf("%d", blocks))
+			if output != nil {
+				fmt.Printf("Block %*d/%d OK -- recovered %d bytes and appended them into %s\n", w, block, blocks, l, out)
+			} else {
+				fmt.Printf("Block %*d/%d OK -- recovered %d bytes\n", w, block, blocks, l)
+			}
 		}
 	}
 	return nil

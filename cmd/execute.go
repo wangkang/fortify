@@ -15,16 +15,27 @@ import (
 )
 
 func init() {
-	sub := &cobra.Command{Use: "execute", Short: "Execute the program decrypted from the fortified file"}
-	var i string
-	sub.Flags().StringVarP(&i, "in", "i", "", "path of the fortified input file")
-	_ = sub.MarkFlagRequired("in")
-	sub.Args = cobra.MinimumNArgs(1)
-	sub.RunE = func(_ *cobra.Command, args []string) error { return execute(i, args) }
-	root.AddCommand(sub)
+	c := &cobra.Command{
+		Short: "Execute a decrypted program from the fortified file",
+		Use:   "execute -i <input-file> [flags] <key1> [key2] ... [-- [arg1] [arg2] ...]",
+		Args:  cobra.MinimumNArgs(1),
+		RunE:  func(_ *cobra.Command, args []string) error { return execute(flagIn, args) },
+	}
+	c.SetUsageTemplate(fmt.Sprintf(`%s
+Required Arguments:
+  <key1>   Path to the first secret share file or private key file if cipher key kind of <input-file> is 'rsa'
+  [key2]   [Required cipher key kind of <input-file> is 'sss'] Path to the second secret share file
+  ...      Additional paths to secret share files (all files remain unmodified)
+`, c.UsageTemplate()))
+	root.AddCommand(c)
+	initFlagHelp(c)
+	initFlagVerbose(c)
+	initFlagIn(c, "[Required] Path of the fortified/encrypted input file")
+	_ = c.MarkFlagRequired("in")
 }
 
 func execute(input string, args []string) (err error) {
+	files.SetVerbose(flagVerbose)
 	var in *os.File
 	var iCloseFn func()
 	if in, iCloseFn, err = files.OpenInputFile(input); err != nil {
@@ -38,7 +49,8 @@ func execute(input string, args []string) (err error) {
 	//fmt.Printf("%s\n", layout)
 	meta := layout.Metadata()
 	var f *fortifier.Fortifier
-	if f, err = newFortifier(meta.Key, meta, args); err != nil {
+	var rest []string
+	if f, rest, err = newFortifier(meta.Key, meta, args); err != nil {
 		return
 	}
 	var dec fortifier.Decrypter
@@ -66,7 +78,7 @@ func execute(input string, args []string) (err error) {
 	var process *os.Process
 	chanSignal := make(chan os.Signal, 1)
 	signal.Notify(chanSignal, os.Interrupt, syscall.SIGTERM)
-	if process, err = start(out, &wg, chanSignal); err != nil {
+	if process, err = start(out, &wg, chanSignal, rest...); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Failed to run program: %v\n", err)
 		os.Exit(2)
 		return nil
@@ -88,13 +100,13 @@ func permit(path string) error {
 	return nil
 }
 
-func start(out *os.File, wg *sync.WaitGroup, chanSignal chan os.Signal) (*os.Process, error) {
+func start(out *os.File, wg *sync.WaitGroup, chanSignal chan os.Signal, arg ...string) (*os.Process, error) {
 	if err := permit(out.Name()); err != nil {
 		fmt.Printf("failed to add permission: %v\n", err)
 		return nil, err
 	}
 	path := out.Name()
-	cmd := exec.Command(path)
+	cmd := exec.Command(path, arg...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -105,7 +117,7 @@ func start(out *os.File, wg *sync.WaitGroup, chanSignal chan os.Signal) (*os.Pro
 	wg.Add(1)
 	go func(wg *sync.WaitGroup) {
 		if err := cmd.Wait(); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "program execution failed: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Failed: %v\n", err)
 		}
 		wg.Done()
 		chanSignal <- syscall.SIGTERM

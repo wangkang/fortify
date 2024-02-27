@@ -5,7 +5,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
+
+var verbose bool
+var verboseSetOnce sync.Once
+
+func SetVerbose(b bool) {
+	verboseSetOnce.Do(func() {
+		verbose = b
+	})
+}
 
 func Stat(file string) (stat os.FileInfo, path string, err error) {
 	if path, err = filepath.Abs(strings.TrimSpace(file)); err != nil {
@@ -24,11 +34,15 @@ func OpenInputFile(name string) (file *os.File, closeFn func(), err error) {
 	if file, err = openForRead(name); err != nil {
 		return
 	}
-	fmt.Printf("%v --> open\n", file.Name())
+	if verbose {
+		fmt.Printf("%s --> open\n", file.Name())
+	}
 	closeFn = func() {
 		_ = ReleaseLock(file.Fd())
 		_ = file.Close()
-		fmt.Printf("%v --> close\n", file.Name())
+		if verbose {
+			fmt.Printf("%s --> close\n", file.Name())
+		}
 	}
 	return
 }
@@ -37,12 +51,16 @@ func OpenOutputFile(name string, truncate bool, flags ...int) (file *os.File, cl
 	if file, err = openForWrite(name, truncate, 0600, flags...); err != nil {
 		return
 	}
-	fmt.Printf("%v <-- open\n", file.Name())
+	if verbose {
+		fmt.Printf("%s <-- open\n", file.Name())
+	}
 	closeFn = func() {
 		_ = file.Sync()
 		_ = ReleaseLock(file.Fd())
 		_ = file.Close()
-		fmt.Printf("%v <-- close\n", file.Name())
+		if verbose {
+			fmt.Printf("%s <-- close\n", file.Name())
+		}
 	}
 	return
 }
