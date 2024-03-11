@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/struqt/fortify/files"
-	"github.com/struqt/fortify/sss"
+	"github.com/wangkang/fortify/files"
+	"github.com/wangkang/fortify/sss"
 )
 
 func init() {

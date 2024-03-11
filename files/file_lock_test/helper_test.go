@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/struqt/fortify/files"
+	"github.com/wangkang/fortify/files"
 )
 
 func TestExclusiveLock(t *testing.T) {

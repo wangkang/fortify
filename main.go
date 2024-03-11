@@ -1,7 +1,7 @@
 package main
 
 import "os"
-import "github.com/struqt/fortify/cmd"
+import "github.com/wangkang/fortify/cmd"
 
 func main() {
 	os.Exit(cmd.Execute())

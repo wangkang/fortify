@@ -1,4 +1,4 @@
-module github.com/struqt/fortify
+module github.com/wangkang/fortify
 
 go 1.21
 

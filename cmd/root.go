@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/struqt/fortify/files"
-	"github.com/struqt/fortify/fortifier"
-	"github.com/struqt/fortify/sss"
+	"github.com/wangkang/fortify/files"
+	"github.com/wangkang/fortify/fortifier"
+	"github.com/wangkang/fortify/sss"
 )
 
 var root = &cobra.Command{Use: "fortify", Short: "Enhance file security through encryption"}

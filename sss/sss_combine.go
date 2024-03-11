@@ -9,9 +9,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/struqt/fortify/files"
-	"github.com/struqt/fortify/shamir"
-	"github.com/struqt/fortify/utils"
+	"github.com/wangkang/fortify/files"
+	"github.com/wangkang/fortify/shamir"
+	"github.com/wangkang/fortify/utils"
 )
 
 func Combine(parts []Part) ([]byte, error) {

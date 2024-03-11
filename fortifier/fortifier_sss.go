@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"time"
 
-	"github.com/struqt/fortify/sss"
+	"github.com/wangkang/fortify/sss"
 )
 
 type MetadataSss struct {

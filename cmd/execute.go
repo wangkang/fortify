@@ -10,8 +10,8 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
-	"github.com/struqt/fortify/files"
-	"github.com/struqt/fortify/fortifier"
+	"github.com/wangkang/fortify/files"
+	"github.com/wangkang/fortify/fortifier"
 )
 
 func init() {

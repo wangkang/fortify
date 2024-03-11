@@ -8,7 +8,7 @@ import (
 	"hash"
 	"os"
 
-	"github.com/struqt/fortify/sss"
+	"github.com/wangkang/fortify/sss"
 	"golang.org/x/term"
 )
 

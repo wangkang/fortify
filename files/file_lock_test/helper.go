@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/struqt/fortify/files"
+	"github.com/wangkang/fortify/files"
 )
 
 func main() {

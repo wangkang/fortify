@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/struqt/fortify/utils"
+	"github.com/wangkang/fortify/utils"
 	"golang.org/x/crypto/ssh"
 )
 
