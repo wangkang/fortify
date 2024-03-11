@@ -4,9 +4,9 @@ go 1.21
 
 require (
 	github.com/spf13/cobra v1.8.0
-	golang.org/x/crypto v0.20.0
+	golang.org/x/crypto v0.21.0
 	golang.org/x/sys v0.18.0
-	golang.org/x/term v0.17.0
+	golang.org/x/term v0.18.0
 )
 
 require (
