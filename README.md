@@ -10,6 +10,16 @@
 
 ## Usage Overview
 
+### Install the Latest version
+
+```shell
+go install github.com/wangkang/fortify@latest
+```
+
+```shell
+fortify version
+```
+
 ### Shamir's Secret Sharing (SSS)
 
 #### Encryption
