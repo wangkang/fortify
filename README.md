@@ -84,6 +84,7 @@ fortify execute -i <fortified_file> <private_key_file>
 # Developer's Guide
 
 [![Release](https://github.com/wangkang/fortify/actions/workflows/release.yml/badge.svg)](https://github.com/wangkang/fortify/actions/workflows/release.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wangkang/fortify)](https://goreportcard.com/report/github.com/wangkang/fortify)
 
 ## License
 
