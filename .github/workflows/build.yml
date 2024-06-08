@@ -110,15 +110,15 @@ jobs:
           name: ${{ env.ArtifactFilename }}
           path: ${{ github.workspace }}/${{ env.ArtifactFilename }}
 
-      - name: Build Darwin Arm64
+      - name: Build Darwin X64
         if: startsWith(inputs.os, 'macos')
         run: |
-          artifact_filename="fortify-darwin-arm64"
-          GOARCH=arm64 GOOS=darwin go build -ldflags "-s -w" -v -o ./${artifact_filename}
+          artifact_filename="fortify-darwin-x86_64"
+          GOARCH=x86_64 GOOS=darwin go build -ldflags "-s -w" -v -o ./${artifact_filename}
           file ./${artifact_filename}
           echo "ArtifactFilename=$artifact_filename" >> $GITHUB_ENV
 
-      - name: Upload Darwin Arm64
+      - name: Upload Darwin X64
         if: env.ArtifactTag != 'v0' && startsWith(inputs.os, 'macos')
         uses: actions/upload-artifact@v4
         with:
