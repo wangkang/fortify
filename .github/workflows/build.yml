@@ -114,7 +114,7 @@ jobs:
         if: startsWith(inputs.os, 'macos')
         run: |
           artifact_filename="fortify-darwin-x86_64"
-          GOARCH=x86_64 GOOS=darwin go build -ldflags "-s -w" -v -o ./${artifact_filename}
+          GOARCH=amd64 GOOS=darwin go build -ldflags "-s -w" -v -o ./${artifact_filename}
           file ./${artifact_filename}
           echo "ArtifactFilename=$artifact_filename" >> $GITHUB_ENV
 
